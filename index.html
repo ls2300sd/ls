@@ -8,6 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
   
   <style>
+    /* 保留所有原始样式 */
     body {
       margin: 0;
       padding: 0;
@@ -263,7 +264,7 @@
     }
     
     .white-key.midi-active {
-      background-color: #ff9800;
+      background-color: #4ade80;
     }
     
     .black-key {
@@ -282,7 +283,7 @@
     }
     
     .black-key.midi-active {
-      background-color: #ff9800;
+      background-color: #4ade80;
     }
     
     .key-label {
@@ -372,6 +373,58 @@
       color: #ef4444;
     }
     
+    /* 不重复历史记录显示样式 */
+    .non-repeat-history {
+      position: absolute;
+      bottom: 5rem;
+      left: 0;
+      right: 0;
+      margin: 0 auto;
+      width: 95%;
+      background-color: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(4px);
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.3s;
+      color: #000000;
+      z-index: 10;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    
+    .history-title {
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+      color: #4b5563;
+    }
+    
+    .history-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    
+    .history-item {
+      background-color: #e5e7eb;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.875rem;
+    }
+    
+    .history-item.current {
+      background-color: #3b82f6;
+      color: white;
+    }
+    
+    .history-item.old {
+      background-color: #d1d5db;
+      color: #6b7280;
+    }
+    
     @media (max-width: 768px) {
       .menu-item span {
         display: none;
@@ -402,6 +455,11 @@
         top: 4rem;
         left: 1rem;
         right: auto;
+      }
+      
+      .non-repeat-history {
+        bottom: 6rem;
+        max-height: 80px;
       }
     }
   </style>
@@ -486,6 +544,12 @@
     <div id="position-display" class="position-display">
       <span class="pitch-display" id="pitch-text">-</span>
       <span class="position-text" id="position-text">未放置</span>
+    </div>
+    
+    <!-- 不重复历史记录显示 -->
+    <div id="non-repeat-history" class="non-repeat-history" style="display: none;">
+      <div class="history-title">不重复历史记录:</div>
+      <div class="history-items" id="history-items"></div>
     </div>
     
     <!-- 反馈显示 -->
@@ -875,6 +939,17 @@
           >
         </div>
         
+        <!-- 显示不重复历史记录控制 -->
+        <div class="slider-wrapper flex items-center justify-between">
+          <label class="text-sm font-medium text-gray-600">显示不重复历史记录</label>
+          <input 
+            type="checkbox" 
+            id="show-non-repeat-history" 
+            class="w-5 h-5 accent-blue-600"
+            checked
+          >
+        </div>
+        
         <!-- 按钮区域 -->
         <div class="flex space-x-3 mt-4">
           <button id="text-reset-btn" class="flex-1 btn-primary bg-gray-600 hover:bg-gray-700">
@@ -1091,12 +1166,12 @@
           >
         </div>
         
-        <!-- MIDI音符自动放置控制 -->
+        <!-- MIDI音符对比控制 -->
         <div class="slider-wrapper flex items-center justify-between">
-          <label class="text-sm font-medium text-gray-600">MIDI音符自动放置</label>
+          <label class="text-sm font-medium text-gray-600">启用MIDI音符对比</label>
           <input 
             type="checkbox" 
-            id="midi-auto-place" 
+            id="midi-note-compare" 
             class="w-5 h-5 accent-blue-600"
             checked
           >
@@ -1229,6 +1304,25 @@
           </select>
         </div>
         
+        <!-- 不重复随机音符数量设置 -->
+        <div class="slider-wrapper">
+          <div class="slider-label">
+            <span>不重复随机数量</span>
+            <div class="input-group">
+              <span id="non-repeat-value" class="font-mono">0</span>
+              <input type="number" id="non-repeat-input" class="number-input" min="0" value="0">
+            </div>
+          </div>
+          <input 
+            type="range" 
+            id="non-repeat-slider" 
+            class="slider-input"
+            min="0" 
+            max="10" 
+            value="0"
+          >
+        </div>
+        
         <!-- 按钮区域 -->
         <div class="flex space-x-3 mt-4">
           <button id="random-range-reset-btn" class="flex-1 btn-primary bg-gray-600 hover:bg-gray-700">
@@ -1306,6 +1400,7 @@
     const textSizeInput = document.getElementById('text-size-input');
     const showPositionDisplayCheckbox = document.getElementById('show-position-display');
     const showRandomButtonCheckbox = document.getElementById('show-random-button');
+    const showNonRepeatHistoryCheckbox = document.getElementById('show-non-repeat-history');
     
     // 钢琴键盘设置模态框相关元素
     const pianoSettingsContainer = document.getElementById('piano-settings-container');
@@ -1343,7 +1438,7 @@
     const midiDeviceStatus = document.getElementById('midi-device-status');
     const midiNoteDisplay = document.getElementById('midi-note-display');
     const enableMidiInputCheckbox = document.getElementById('enable-midi-input');
-    const midiAutoPlaceCheckbox = document.getElementById('midi-auto-place');
+    const midiNoteCompareCheckbox = document.getElementById('midi-note-compare');
     
     // 随机范围设置模态框相关元素
     const randomRangeContainer = document.getElementById('random-range-container');
@@ -1353,6 +1448,15 @@
     const randomRangeResetBtn = document.getElementById('random-range-reset-btn');
     const minPositionSelect = document.getElementById('min-position-select');
     const maxPositionSelect = document.getElementById('max-position-select');
+    
+    // 不重复随机音符数量相关元素
+    const nonRepeatSlider = document.getElementById('non-repeat-slider');
+    const nonRepeatValue = document.getElementById('non-repeat-value');
+    const nonRepeatInput = document.getElementById('non-repeat-input');
+    
+    // 不重复历史记录显示元素
+    const nonRepeatHistory = document.getElementById('non-repeat-history');
+    const historyItems = document.getElementById('history-items');
     
     // 线条控制滑块和显示元素
     const spacingSlider = document.getElementById('spacing-slider');
@@ -1431,7 +1535,8 @@
       size: 19,                // 文本大小
       font: 'Arial, sans-serif', // 文本字体
       showPositionDisplay: true, // 显示位置显示框
-      showRandomButton: true    // 显示随机按钮
+      showRandomButton: true,    // 显示随机按钮
+      showNonRepeatHistory: true // 显示不重复历史记录
     };
     
     // 吸附功能属性
@@ -1446,6 +1551,13 @@
     let randomRangeProps = {
       minIndex: -16,           // 最小索引（下加八线）
       maxIndex: 24             // 最大索引（上加八线）
+    };
+    
+    // 不重复随机音符属性
+    let nonRepeatProps = {
+      count: 0,           // 不重复随机数量，0表示关闭
+      maxCount: 0,        // 最大可设置数量（根据范围动态计算）
+      history: []         // 已出现的随机音符历史记录
     };
     
     // 钢琴键盘属性
@@ -1473,13 +1585,10 @@
       access: null,            // MIDI访问对象
       inputs: [],              // MIDI输入设备列表
       selectedInput: null,     // 选中的MIDI输入设备
-      autoPlace: true,         // MIDI音符自动放置
-      lastNote: null           // 最后一个MIDI音符
+      noteCompare: true,       // MIDI音符对比功能
+      lastNote: null,          // 最后一个MIDI音符
+      activeNotes: new Set()   // 当前活动的MIDI音符
     };
-    
-    // 随机音符历史记录（避免重复）
-    let randomNoteHistory = [];
-    const MAX_HISTORY_SIZE = 3;
     
     // 音名映射关系 - 下加一线为C4，其他按顺序顺延
     const pitchNames = {
@@ -1912,6 +2021,37 @@
       randomNoteBtn.style.display = textProps.showRandomButton ? 'block' : 'none';
     }
     
+    // 更新不重复历史记录显示
+    function updateNonRepeatHistoryDisplay() {
+      nonRepeatHistory.style.display = textProps.showNonRepeatHistory && nonRepeatProps.count > 0 ? 'block' : 'none';
+      
+      // 更新历史记录内容
+      historyItems.innerHTML = '';
+      
+      if (nonRepeatProps.history.length > 0) {
+        // 按时间顺序显示历史记录（最新的在前）
+        const reversedHistory = [...nonRepeatProps.history].reverse();
+        
+        reversedHistory.forEach((index, i) => {
+          const pitchName = pitchNames[index];
+          if (pitchName) {
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history-item';
+            
+            // 当前音符高亮显示
+            if (i === 0) {
+              historyItem.classList.add('current');
+            } else if (i >= 5) { // 超过5个记录，后面的变灰
+              historyItem.classList.add('old');
+            }
+            
+            historyItem.textContent = pitchName;
+            historyItems.appendChild(historyItem);
+          }
+        });
+      }
+    }
+    
     // 更新MIDI状态显示
     function updateMidiStatus() {
       if (midiProps.enabled && midiProps.selectedInput) {
@@ -1923,6 +2063,48 @@
         midiStatus.classList.add('midi-disconnected');
         midiStatusText.textContent = 'MIDI设备未连接';
       }
+    }
+    
+    // 计算当前范围内的音符位置总数
+    function calculatePositionCount() {
+      const minIndex = randomRangeProps.minIndex;
+      const maxIndex = randomRangeProps.maxIndex;
+      
+      // 确保minIndex <= maxIndex
+      const actualMin = Math.min(minIndex, maxIndex);
+      const actualMax = Math.max(minIndex, maxIndex);
+      
+      // 位置总数 = 最大索引 - 最小索引 + 1
+      return actualMax - actualMin + 1;
+    }
+    
+    // 更新不重复随机数量的最大值
+    function updateNonRepeatMaxCount() {
+      const positionCount = calculatePositionCount();
+      
+      // 最大可设置数量 = 位置总数 - 1
+      nonRepeatProps.maxCount = Math.max(0, positionCount - 1);
+      
+      // 如果当前设置值超过了新的最大值，则调整为最大值
+      if (nonRepeatProps.count > nonRepeatProps.maxCount) {
+        nonRepeatProps.count = nonRepeatProps.maxCount;
+        
+        // 更新UI
+        nonRepeatSlider.value = nonRepeatProps.count;
+        nonRepeatInput.value = nonRepeatProps.count;
+      }
+      
+      updateNonRepeatValueDisplay();
+    }
+    
+    // 更新不重复随机数量显示
+    function updateNonRepeatValueDisplay() {
+      nonRepeatValue.textContent = `${nonRepeatSlider.value}`;
+      nonRepeatInput.value = nonRepeatSlider.value;
+      
+      // 设置输入框的最大值限制
+      nonRepeatInput.max = nonRepeatProps.maxCount;
+      nonRepeatSlider.max = nonRepeatProps.maxCount;
     }
     
     // 绘制五线谱、高音谱号、全音符和加线
@@ -2143,53 +2325,53 @@
     
     // 添加钢琴键盘事件监听
     function addPianoEventListeners() {
-    pianoProps.keys.forEach(key => {
-      // 移除原来的 mousedown 和 touchstart 事件
-      // 添加 mouseup 和 touchend 事件
-      key.element.addEventListener('mouseup', (e) => {
-        handlePianoKeyPress(key, e);
-      });
-      
-      key.element.addEventListener('touchend', (e) => {
-        handlePianoKeyPress(key, e);
-      });
+      pianoProps.keys.forEach(key => {
+        // 移除原来的 mousedown 和 touchstart 事件
+        // 添加 mouseup 和 touchend 事件
+        key.element.addEventListener('mouseup', (e) => {
+          handlePianoKeyPress(key, e);
+        });
+        
+        key.element.addEventListener('touchend', (e) => {
+          handlePianoKeyPress(key, e);
+        });
 
-      // 添加鼠标按下和触摸开始事件来提供视觉反馈
-      key.element.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        key.element.classList.add('active');
+        // 添加鼠标按下和触摸开始事件来提供视觉反馈
+        key.element.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          key.element.classList.add('active');
+        });
+        
+        key.element.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          key.element.classList.add('active');
+        });
       });
-      
-      key.element.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        key.element.classList.add('active');
-      });
-    });
-  }
-
-  // 处理钢琴键松开
-  function handlePianoKeyPress(key, e) {
-    // 阻止默认行为
-    e.preventDefault();
-    
-    // 移除活动状态
-    key.element.classList.remove('active');
-    
-    // 获取当前音符的音名
-    const currentNoteName = pitchText.textContent.replace('音名：', '');
-    
-    // 检查按键是否正确
-    if (key.name === currentNoteName) {
-      // 正确
-      showFeedback('正确！', true);
-      setTimeout(() => {
-        randomMoveNote();
-      }, 500);
-    } else {
-      // 错误
-      showFeedback('错了！', false);
     }
-  }
+
+    // 处理钢琴键松开
+    function handlePianoKeyPress(key, e) {
+      // 阻止默认行为
+      e.preventDefault();
+      
+      // 移除活动状态
+      key.element.classList.remove('active');
+      
+      // 获取当前音符的音名
+      const currentNoteName = pitchText.textContent.replace('音名：', '');
+      
+      // 检查按键是否正确
+      if (key.name === currentNoteName) {
+        // 正确
+        showFeedback('正确！', true);
+        setTimeout(() => {
+          randomMoveNote();
+        }, 500);
+      } else {
+        // 错误
+        showFeedback('错了！', false);
+      }
+    }
     
     // 显示反馈信息
     function showFeedback(message, isCorrect) {
@@ -2217,26 +2399,42 @@
       const actualMin = Math.min(minIndex, maxIndex);
       const actualMax = Math.max(minIndex, maxIndex);
       
-      // 生成随机索引，避免与最近3个重复
       let randomIndex;
-      let attempts = 0;
-      const maxAttempts = 20; // 防止无限循环
       
-      do {
-        randomIndex = Math.floor(Math.random() * (actualMax - actualMin + 1)) + actualMin;
-        attempts++;
-        
-        // 如果尝试次数过多，则清空历史记录
-        if (attempts >= maxAttempts) {
-          randomNoteHistory = [];
-          break;
+      // 如果不重复随机功能启用
+      if (nonRepeatProps.count > 0) {
+        // 如果历史记录数量达到限制，清空历史记录
+        if (nonRepeatProps.history.length >= nonRepeatProps.count) {
+          nonRepeatProps.history = [];
         }
-      } while (randomNoteHistory.includes(randomIndex));
-      
-      // 更新历史记录
-      randomNoteHistory.push(randomIndex);
-      if (randomNoteHistory.length > MAX_HISTORY_SIZE) {
-        randomNoteHistory.shift();
+        
+        // 生成可用位置列表
+        const availablePositions = [];
+        for (let i = actualMin; i <= actualMax; i++) {
+          if (!nonRepeatProps.history.includes(i)) {
+            availablePositions.push(i);
+          }
+        }
+        
+        // 如果没有可用位置，清空历史记录重新开始
+        if (availablePositions.length === 0) {
+          nonRepeatProps.history = [];
+          for (let i = actualMin; i <= actualMax; i++) {
+            availablePositions.push(i);
+          }
+        }
+        
+        // 从可用位置中随机选择一个
+        randomIndex = availablePositions[Math.floor(Math.random() * availablePositions.length)];
+        
+        // 添加到历史记录
+        nonRepeatProps.history.push(randomIndex);
+        
+        // 更新历史记录显示
+        updateNonRepeatHistoryDisplay();
+      } else {
+        // 普通随机模式（允许重复）
+        randomIndex = Math.floor(Math.random() * (actualMax - actualMin + 1)) + actualMin;
       }
       
       // 计算对应的Y坐标
@@ -2285,21 +2483,15 @@
     }
     
     // 高亮对应的钢琴键
-    function highlightPianoKey(pitchName) {
-      // 清除所有键盘高亮
-      pianoProps.keys.forEach(key => {
-        key.element.classList.remove('midi-active');
-      });
-      
-      // 找到对应的钢琴键并高亮
+    function highlightPianoKey(pitchName, isActive) {
+      // 找到对应的钢琴键
       const key = pianoProps.keys.find(k => k.name === pitchName);
       if (key) {
-        key.element.classList.add('midi-active');
-        
-        // 2秒后自动取消高亮
-        setTimeout(() => {
+        if (isActive) {
+          key.element.classList.add('midi-active');
+        } else {
           key.element.classList.remove('midi-active');
-        }, 2000);
+        }
       }
     }
     
@@ -2315,16 +2507,37 @@
           midiNoteDisplay.textContent = `${pitchName} (${note})`;
           midiProps.lastNote = pitchName;
           
-          // 高亮对应的钢琴键
-          highlightPianoKey(pitchName);
+          // 添加音符到活动集合
+          midiProps.activeNotes.add(note);
           
-          // 如果启用了自动放置，将音符移动到对应的五线谱位置
-          if (midiProps.autoPlace) {
-            moveNoteToPitch(pitchName);
+          // 高亮对应的钢琴键
+          highlightPianoKey(pitchName, true);
+          
+          // 如果启用了音符对比，检查是否正确
+          if (midiProps.noteCompare) {
+            const currentNoteName = pitchText.textContent.replace('音名：', '');
+            
+            if (pitchName === currentNoteName) {
+              // 正确
+              showFeedback('正确！', true);
+              setTimeout(() => {
+                randomMoveNote();
+              }, 500);
+            } else {
+              // 错误
+              showFeedback('错了！', false);
+            }
           }
         }
       } else if ((command & 0xf0) === 0x80 || ((command & 0xf0) === 0x90 && velocity === 0)) { // 音符关
-        // 可以在这里添加音符关的处理逻辑
+        // 从活动集合中移除音符
+        midiProps.activeNotes.delete(note);
+        
+        const pitchName = midiNoteToPitch[note];
+        if (pitchName) {
+          // 取消高亮对应的钢琴键
+          highlightPianoKey(pitchName, false);
+        }
       }
     }
     
@@ -2438,6 +2651,12 @@
           midiProps.selectedInput = null;
         }
         midiProps.access = null;
+        
+        // 清除所有MIDI键高亮
+        midiProps.activeNotes.clear();
+        pianoProps.keys.forEach(key => {
+          key.element.classList.remove('midi-active');
+        });
       }
       
       updateMidiStatus();
@@ -2863,6 +3082,9 @@
     setupSliderInputSync(pianoKeyWidthSlider, pianoKeyWidthInput, 20, 80, updatePianoValueDisplay);
     setupSliderInputSync(pianoGroupsSlider, pianoGroupsInput, 1, 7, updatePianoValueDisplay);
     
+    // 设置不重复随机数量滑块和输入框同步
+    setupSliderInputSync(nonRepeatSlider, nonRepeatInput, 0, 10, updateNonRepeatValueDisplay);
+    
     // 其他事件监听
     colorPicker.addEventListener('input', drawLines);
     
@@ -2901,17 +3123,20 @@
     textColorPicker.addEventListener('input', () => {
       textProps.color = textColorPicker.value;
       updatePositionDisplayStyle();
+      updateNonRepeatHistoryDisplay();
     });
     
     textSizeSlider.addEventListener('input', () => {
       textProps.size = parseInt(textSizeSlider.value);
       updateTextValueDisplay();
       updatePositionDisplayStyle();
+      updateNonRepeatHistoryDisplay();
     });
     
     textFontSelect.addEventListener('change', () => {
       textProps.font = textFontSelect.value;
       updatePositionDisplayStyle();
+      updateNonRepeatHistoryDisplay();
     });
     
     showPositionDisplayCheckbox.addEventListener('change', () => {
@@ -2922,6 +3147,11 @@
     showRandomButtonCheckbox.addEventListener('change', () => {
       textProps.showRandomButton = showRandomButtonCheckbox.checked;
       updateRandomButtonDisplay();
+    });
+    
+    showNonRepeatHistoryCheckbox.addEventListener('change', () => {
+      textProps.showNonRepeatHistory = showNonRepeatHistoryCheckbox.checked;
+      updateNonRepeatHistoryDisplay();
     });
     
     showPianoCheckbox.addEventListener('change', () => {
@@ -2982,8 +3212,8 @@
       toggleMidiInput(enableMidiInputCheckbox.checked);
     });
     
-    midiAutoPlaceCheckbox.addEventListener('change', () => {
-      midiProps.autoPlace = midiAutoPlaceCheckbox.checked;
+    midiNoteCompareCheckbox.addEventListener('change', () => {
+      midiProps.noteCompare = midiNoteCompareCheckbox.checked;
     });
     
     midiDeviceSelect.addEventListener('change', () => {
@@ -2994,99 +3224,131 @@
       refreshMidiDevices();
     });
     
-let randomBtnProps = {
-  isDragging: false,
-  offsetX: 0,
-  offsetY: 0,
-  initialX: 0,
-  initialY: 0
-};
-
-// 随机按钮事件监听
-randomNoteBtn.addEventListener('mousedown', startRandomBtnDrag);
-randomNoteBtn.addEventListener('touchstart', startRandomBtnDrag);
-
-function startRandomBtnDrag(e) {
-  e.preventDefault();
-  randomBtnProps.isDragging = true;
-  
-  const rect = randomNoteBtn.getBoundingClientRect();
-  if (e.type === 'mousedown') {
-    randomBtnProps.offsetX = e.clientX - rect.left;
-    randomBtnProps.offsetY = e.clientY - rect.top;
-  } else {
-    const touch = e.touches[0];
-    randomBtnProps.offsetX = touch.clientX - rect.left;
-    randomBtnProps.offsetY = touch.clientY - rect.top;
-  }
-  
-  randomBtnProps.initialX = parseInt(randomNoteBtn.style.right || '16');
-  randomBtnProps.initialY = parseInt(randomNoteBtn.style.bottom || '16');
-  
-  document.addEventListener('mousemove', dragRandomBtn);
-  document.addEventListener('touchmove', dragRandomBtn);
-  document.addEventListener('mouseup', endRandomBtnDrag);
-  document.addEventListener('touchend', endRandomBtnDrag);
-}
-
-function dragRandomBtn(e) {
-  if (!randomBtnProps.isDragging) return;
-  e.preventDefault();
-  
-  let clientX, clientY;
-  if (e.type === 'mousemove') {
-    clientX = e.clientX;
-    clientY = e.clientY;
-  } else {
-    const touch = e.touches[0];
-    clientX = touch.clientX;
-    clientY = touch.clientY;
-  }
-  
-  const containerRect = canvas.parentElement.getBoundingClientRect();
-  const btnRect = randomNoteBtn.getBoundingClientRect();
-  
-  const newRight = containerRect.right - clientX - randomBtnProps.offsetX;
-  const newBottom = containerRect.bottom - clientY - randomBtnProps.offsetY;
-  
-  // 限制在容器范围内
-  const maxRight = containerRect.width - btnRect.width - 16;
-  const maxBottom = containerRect.height - btnRect.height - 16;
-  
-  randomNoteBtn.style.right = `${Math.max(16, Math.min(newRight, maxRight))}px`;
-  randomNoteBtn.style.bottom = `${Math.max(16, Math.min(newBottom, maxBottom))}px`;
-}
-
-function endRandomBtnDrag(e) {
-  if (!randomBtnProps.isDragging) return;
-  
-  // 检查是否是点击（移动距离很小）
-  const moved = Math.abs(parseInt(randomNoteBtn.style.right) - randomBtnProps.initialX) > 5 || 
-                Math.abs(parseInt(randomNoteBtn.style.bottom) - randomBtnProps.initialY) > 5;
-  
-  if (!moved) {
-    // 如果是点击，执行随机音符
-    randomMoveNote();
-  }
-  
-  randomBtnProps.isDragging = false;
-  document.removeEventListener('mousemove', dragRandomBtn);
-  document.removeEventListener('touchmove', dragRandomBtn);
-  document.removeEventListener('mouseup', endRandomBtnDrag);
-  document.removeEventListener('touchend', endRandomBtnDrag);
-}
-
-// 随机范围设置事件
-minPositionSelect.addEventListener('change', () => {
-  randomRangeProps.minIndex = parseInt(minPositionSelect.value);
-  randomMoveNote(); // 设置后立即执行一次随机
-});
-
-maxPositionSelect.addEventListener('change', () => {
-  randomRangeProps.maxIndex = parseInt(maxPositionSelect.value);
-  randomMoveNote(); // 设置后立即执行一次随机
-});
-
+    // 不重复随机数量变化事件
+    nonRepeatSlider.addEventListener('input', () => {
+      nonRepeatProps.count = parseInt(nonRepeatSlider.value);
+      updateNonRepeatValueDisplay();
+      updateNonRepeatHistoryDisplay();
+      
+      // 如果不重复数量设置为0，清空历史记录
+      if (nonRepeatProps.count === 0) {
+        nonRepeatProps.history = [];
+        updateNonRepeatHistoryDisplay();
+      }
+    });
+    
+    nonRepeatInput.addEventListener('input', () => {
+      let value = parseInt(nonRepeatInput.value);
+      if (isNaN(value)) value = 0;
+      if (value < 0) value = 0;
+      if (value > nonRepeatProps.maxCount) value = nonRepeatProps.maxCount;
+      nonRepeatInput.value = value;
+      nonRepeatSlider.value = value;
+      nonRepeatProps.count = value;
+      updateNonRepeatValueDisplay();
+      updateNonRepeatHistoryDisplay();
+      
+      // 如果不重复数量设置为0，清空历史记录
+      if (nonRepeatProps.count === 0) {
+        nonRepeatProps.history = [];
+        updateNonRepeatHistoryDisplay();
+      }
+    });
+    
+    // 随机范围变化时更新不重复随机数量的最大值
+    minPositionSelect.addEventListener('change', () => {
+      randomRangeProps.minIndex = parseInt(minPositionSelect.value);
+      updateNonRepeatMaxCount();
+      randomMoveNote(); // 设置后立即执行一次随机
+    });
+    
+    maxPositionSelect.addEventListener('change', () => {
+      randomRangeProps.maxIndex = parseInt(maxPositionSelect.value);
+      updateNonRepeatMaxCount();
+      randomMoveNote(); // 设置后立即执行一次随机
+    });
+    
+    let randomBtnProps = {
+      isDragging: false,
+      offsetX: 0,
+      offsetY: 0,
+      initialX: 0,
+      initialY: 0
+    };
+    
+    // 随机按钮事件监听
+    randomNoteBtn.addEventListener('mousedown', startRandomBtnDrag);
+    randomNoteBtn.addEventListener('touchstart', startRandomBtnDrag);
+    
+    function startRandomBtnDrag(e) {
+      e.preventDefault();
+      randomBtnProps.isDragging = true;
+      
+      const rect = randomNoteBtn.getBoundingClientRect();
+      if (e.type === 'mousedown') {
+        randomBtnProps.offsetX = e.clientX - rect.left;
+        randomBtnProps.offsetY = e.clientY - rect.top;
+      } else {
+        const touch = e.touches[0];
+        randomBtnProps.offsetX = touch.clientX - rect.left;
+        randomBtnProps.offsetY = touch.clientY - rect.top;
+      }
+      
+      randomBtnProps.initialX = parseInt(randomNoteBtn.style.right || '16');
+      randomBtnProps.initialY = parseInt(randomNoteBtn.style.bottom || '16');
+      
+      document.addEventListener('mousemove', dragRandomBtn);
+      document.addEventListener('touchmove', dragRandomBtn);
+      document.addEventListener('mouseup', endRandomBtnDrag);
+      document.addEventListener('touchend', endRandomBtnDrag);
+    }
+    
+    function dragRandomBtn(e) {
+      if (!randomBtnProps.isDragging) return;
+      e.preventDefault();
+      
+      let clientX, clientY;
+      if (e.type === 'mousemove') {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      } else {
+        const touch = e.touches[0];
+        clientX = touch.clientX;
+        clientY = touch.clientY;
+      }
+      
+      const containerRect = canvas.parentElement.getBoundingClientRect();
+      const btnRect = randomNoteBtn.getBoundingClientRect();
+      
+      const newRight = containerRect.right - clientX - randomBtnProps.offsetX;
+      const newBottom = containerRect.bottom - clientY - randomBtnProps.offsetY;
+      
+      // 限制在容器范围内
+      const maxRight = containerRect.width - btnRect.width - 16;
+      const maxBottom = containerRect.height - btnRect.height - 16;
+      
+      randomNoteBtn.style.right = `${Math.max(16, Math.min(newRight, maxRight))}px`;
+      randomNoteBtn.style.bottom = `${Math.max(16, Math.min(newBottom, maxBottom))}px`;
+    }
+    
+    function endRandomBtnDrag(e) {
+      if (!randomBtnProps.isDragging) return;
+      
+      // 检查是否是点击（移动距离很小）
+      const moved = Math.abs(parseInt(randomNoteBtn.style.right) - randomBtnProps.initialX) > 5 || 
+                    Math.abs(parseInt(randomNoteBtn.style.bottom) - randomBtnProps.initialY) > 5;
+      
+      if (!moved) {
+        // 如果是点击，执行随机音符
+        randomMoveNote();
+      }
+      
+      randomBtnProps.isDragging = false;
+      document.removeEventListener('mousemove', dragRandomBtn);
+      document.removeEventListener('touchmove', dragRandomBtn);
+      document.removeEventListener('mouseup', endRandomBtnDrag);
+      document.removeEventListener('touchend', endRandomBtnDrag);
+    }
     
     // 重置按钮事件
     linesResetBtn.addEventListener('click', () => {
@@ -3133,14 +3395,17 @@ maxPositionSelect.addEventListener('change', () => {
       textFontSelect.value = 'Arial, sans-serif';
       showPositionDisplayCheckbox.checked = true;
       showRandomButtonCheckbox.checked = true;
+      showNonRepeatHistoryCheckbox.checked = true;
       textProps.color = '#000000';
       textProps.size = 19;
       textProps.font = 'Arial, sans-serif';
       textProps.showPositionDisplay = true;
       textProps.showRandomButton = true;
+      textProps.showNonRepeatHistory = true;
       updateTextValueDisplay();
       updatePositionDisplayStyle();
       updateRandomButtonDisplay();
+      updateNonRepeatHistoryDisplay();
     });
     
     pianoResetBtn.addEventListener('click', () => {
@@ -3177,6 +3442,16 @@ maxPositionSelect.addEventListener('change', () => {
       maxPositionSelect.value = '24';
       randomRangeProps.minIndex = -16;
       randomRangeProps.maxIndex = 24;
+      
+      // 重置不重复随机数量
+      nonRepeatSlider.value = 0;
+      nonRepeatInput.value = 0;
+      nonRepeatProps.count = 0;
+      nonRepeatProps.history = [];
+      
+      updateNonRepeatValueDisplay();
+      updateNonRepeatMaxCount();
+      updateNonRepeatHistoryDisplay();
       randomMoveNote(); // 重置后立即执行一次随机
     });
     
@@ -3212,12 +3487,17 @@ maxPositionSelect.addEventListener('change', () => {
     updateNoteValueDisplay();
     updateTextValueDisplay();
     updatePianoValueDisplay();
+    updateNonRepeatValueDisplay();
+    
+    // 初始化不重复随机数量的最大值
+    updateNonRepeatMaxCount();
     
     // 初始绘制
     drawLines();
     drawPiano();
     updatePositionDisplayStyle();
     updateRandomButtonDisplay();
+    updateNonRepeatHistoryDisplay();
     updatePianoPosition();
     updateMidiStatus();
   </script>
