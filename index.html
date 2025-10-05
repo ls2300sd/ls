@@ -8,7 +8,6 @@
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
   
   <style>
-    /* 保留所有原始样式 */
     body {
       margin: 0;
       padding: 0;
@@ -230,14 +229,13 @@
     
     .piano-container {
       position: absolute;
-      bottom: 0;
+      bottom: 100px;
       left: 0;
       width: 100%;
       height: 150px;
-      background-color: #333;
-      border-top: 2px solid #555;
       overflow: hidden;
       user-select: none;
+      z-index: 20;
     }
     
     .piano-keys {
@@ -245,6 +243,7 @@
       height: 100%;
       width: 100%;
       overflow-x: auto;
+      background-color: transparent;
     }
     
     .white-key {
@@ -324,24 +323,17 @@
     
     .piano-drag-handle {
       position: absolute;
-      top: -20px;
+      top: -26px;
       left: 0;
       width: 100%;
-      height: 30px;
-      background-color: rgba(100, 100, 255, 0.5);
+      height: 26px;
+      background-color: transparent;
       cursor: grab;
-      z-index: 5;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 12px;
-      border-radius: 5px 5px 0 0;
+      z-index: 25;
     }
     
     .piano-drag-handle:active {
       cursor: grabbing;
-      background-color: rgba(80, 80, 255, 0.7);
     }
     
     .piano-zoomable {
@@ -565,9 +557,7 @@
     
     <!-- 钢琴键盘 -->
     <div id="piano-container" class="piano-container">
-      <div id="piano-drag-handle" class="piano-drag-handle">
-        <i class="fa fa-arrows-h mr-2"></i>拖拽移动键盘
-      </div>
+      <div id="piano-drag-handle" class="piano-drag-handle"></div>
       <div id="piano-keys" class="piano-keys piano-zoomable"></div>
     </div>
   </main>
@@ -1001,13 +991,13 @@
           >
         </div>
         
-        <!-- 钢琴键盘位置控制 -->
+        <!-- 钢琴键盘垂直位置控制 -->
         <div class="slider-wrapper">
           <div class="slider-label">
             <span>垂直位置</span>
             <div class="input-group">
-              <span id="piano-position-value" class="font-mono">0px</span>
-              <input type="number" id="piano-position-input" class="number-input" min="0" max="500" value="0">
+              <span id="piano-position-value" class="font-mono">100px</span>
+              <input type="number" id="piano-position-input" class="number-input" min="0" max="500" value="100">
             </div>
           </div>
           <input 
@@ -1016,30 +1006,11 @@
             class="slider-input"
             min="0" 
             max="500" 
-            value="0"
+            value="100"
           >
         </div>
         
-        <!-- 钢琴键盘水平位置控制 -->
-        <div class="slider-wrapper">
-          <div class="slider-label">
-            <span>水平位置</span>
-            <div class="input-group">
-              <span id="piano-horizontal-value" class="font-mono">0px</span>
-              <input type="number" id="piano-horizontal-input" class="number-input" min="-500" max="500" value="0">
-            </div>
-          </div>
-          <input 
-            type="range" 
-            id="piano-horizontal-slider" 
-            class="slider-input"
-            min="-500" 
-            max="500" 
-            value="0"
-          >
-        </div>
-        
-        <!-- 琴键宽度控制 -->
+        <!-- 白键宽度控制 -->
         <div class="slider-wrapper">
           <div class="slider-label">
             <span>白键宽度</span>
@@ -1055,25 +1026,6 @@
             min="20" 
             max="80" 
             value="40"
-          >
-        </div>
-        
-        <!-- 显示琴键组数控制 -->
-        <div class="slider-wrapper">
-          <div class="slider-label">
-            <span>显示琴键组数</span>
-            <div class="input-group">
-              <span id="piano-groups-value" class="font-mono">7组</span>
-              <input type="number" id="piano-groups-input" class="number-input" min="1" max="7" value="7">
-            </div>
-          </div>
-          <input 
-            type="range" 
-            id="piano-groups-slider" 
-            class="slider-input"
-            min="1" 
-            max="7" 
-            value="7"
           >
         </div>
         
@@ -1415,15 +1367,9 @@
     const pianoPositionSlider = document.getElementById('piano-position-slider');
     const pianoPositionValue = document.getElementById('piano-position-value');
     const pianoPositionInput = document.getElementById('piano-position-input');
-    const pianoHorizontalSlider = document.getElementById('piano-horizontal-slider');
-    const pianoHorizontalValue = document.getElementById('piano-horizontal-value');
-    const pianoHorizontalInput = document.getElementById('piano-horizontal-input');
     const pianoKeyWidthSlider = document.getElementById('piano-key-width-slider');
     const pianoKeyWidthValue = document.getElementById('piano-key-width-value');
     const pianoKeyWidthInput = document.getElementById('piano-key-width-input');
-    const pianoGroupsSlider = document.getElementById('piano-groups-slider');
-    const pianoGroupsValue = document.getElementById('piano-groups-value');
-    const pianoGroupsInput = document.getElementById('piano-groups-input');
     const showAllNamesCheckbox = document.getElementById('show-all-names');
     const showOnlyCentralCCheckbox = document.getElementById('show-only-central-c');
     const enablePinchZoomCheckbox = document.getElementById('enable-pinch-zoom');
@@ -1500,7 +1446,7 @@
     const pianoKeys = document.getElementById('piano-keys');
     const pianoDragHandle = document.getElementById('piano-drag-handle');
     
-    // 高音谱号图片对象和属性
+    // 高音谱号图片对象和属性 - 使用本地文件
     const clefImage = new Image();
     let clefProps = {
       x: 50,           // 初始X位置
@@ -1515,7 +1461,7 @@
       offsetY: 0       // 拖拽偏移Y
     };
     
-    // 全音符图片对象和属性
+    // 全音符图片对象和属性 - 使用本地文件
     const noteImage = new Image();
     let noteProps = {
       x: 400,          // 初始X位置
@@ -1564,10 +1510,9 @@
     let pianoProps = {
       show: true,              // 是否显示钢琴键盘
       height: 150,             // 键盘高度
-      position: 0,             // 垂直位置
+      position: 100,           // 垂直位置
       horizontal: 0,           // 水平位置
       keyWidth: 40,            // 白键宽度
-      groups: 7,               // 显示琴键组数
       showAllNames: true,      // 显示所有音名
       showOnlyCentralC: false, // 仅显示中央C
       enablePinchZoom: true,   // 启用双指缩放
@@ -1725,9 +1670,8 @@
       "C8"
     ];
     
-    // 加载高音谱号图片
-    clefImage.src = 'https://p11-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9rns2rl98/8a33ec8491d24777acab058f26f70a9c.png~tplv-a9rns2rl98-24:720:720.png?rcl=2025092722553727D293D8F79DC2432C68&rk3s=8e244e95&rrcfp=8a172a1a&x-expires=1759589738&x-signature=GGFVJqE0kezIYRUPnOPV1Lxx0Dg%3D';
-    clefImage.crossOrigin = 'anonymous'; // 允许跨域加载图片
+    // 加载高音谱号图片 - 使用本地文件
+    clefImage.src = 'treble_clef.png';
     
     clefImage.onload = function() {
       // 存储图片原始尺寸
@@ -1738,13 +1682,12 @@
     
     // 处理图片加载错误
     clefImage.onerror = function() {
-      console.error('高音谱号图片加载失败，请检查图片链接是否有效');
-      alert('高音谱号图片加载失败，部分功能可能无法正常使用');
+      console.error('高音谱号图片加载失败，请确保 treble_clef.png 文件存在于当前目录');
+      alert('高音谱号图片加载失败，请确保 treble_clef.png 文件存在于当前目录');
     };
     
-    // 加载全音符图片
-    noteImage.src = 'https://p26-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9rns2rl98/abf344198b1842028138b905ec3197bf.png~tplv-a9rns2rl98-24:720:720.png?rcl=202509280020167CA68D41E48EBAFAFB82&rk3s=8e244e95&rrcfp=8a172a1a&x-expires=1759594816&x-signature=2W9v5AwA4u29aVymspD8KiUxZ9E%3D';
-    noteImage.crossOrigin = 'anonymous'; // 允许跨域加载图片
+    // 加载全音符图片 - 使用本地文件
+    noteImage.src = 'whole_note.png';
     
     noteImage.onload = function() {
       // 存储图片原始尺寸
@@ -1755,8 +1698,8 @@
     
     // 处理全音符图片加载错误
     noteImage.onerror = function() {
-      console.error('全音符图片加载失败，请检查图片链接是否有效');
-      alert('全音符图片加载失败，部分功能可能无法正常使用');
+      console.error('全音符图片加载失败，请确保 whole_note.png 文件存在于当前目录');
+      alert('全音符图片加载失败，请确保 whole_note.png 文件存在于当前目录');
     };
     
     // 下拉菜单控制
@@ -2230,27 +2173,18 @@
       pianoKeys.innerHTML = '';
       pianoProps.keys = [];
       
-      // 计算钢琴键盘尺寸
-      const pianoWidth = pianoProps.keyWidth * 52 * pianoProps.scale; // 52个白键，考虑缩放
+      // 计算钢琴键盘总宽度
+      const totalWhiteKeys = 52; // 标准88键钢琴有52个白键
+      const pianoWidth = pianoProps.keyWidth * totalWhiteKeys * pianoProps.scale;
       pianoKeys.style.width = `${pianoWidth}px`;
       
       // 创建白键和黑键
       let whiteKeyIndex = 0;
       
-      // 计算要显示的键的范围（基于组数）
-      const totalGroups = 7; // 标准钢琴有7组
-      const groupsToShow = pianoProps.groups;
-      const startGroup = Math.floor((totalGroups - groupsToShow) / 2);
-      const startIndex = startGroup * 12; // 每组12个键
-      const endIndex = startIndex + groupsToShow * 12;
-      
       // 创建白键和黑键
       for (let i = 0; i < standardPianoKeyNames.length; i++) {
         const keyName = standardPianoKeyNames[i];
         const isBlack = keyName.includes('#');
-        
-        // 检查是否在显示范围内
-        if (i < startIndex || i >= endIndex) continue;
         
         if (isBlack) {
           // 创建黑键
@@ -2321,6 +2255,16 @@
       
       // 添加事件监听
       addPianoEventListeners();
+      
+      // 初始定位：使C4键的中心与画布中心对齐
+      const c4Index = standardPianoKeyNames.indexOf('C4');
+      const c4Key = pianoProps.keys[c4Index];
+      if (c4Key) {
+        const c4CenterX = parseFloat(c4Key.element.style.left) + (pianoProps.keyWidth * pianoProps.scale / 2);
+        const canvasCenterX = canvas.clientWidth / 2;
+        pianoProps.horizontal = canvasCenterX - c4CenterX;
+        updatePianoPosition();
+      }
     }
     
     // 添加钢琴键盘事件监听
@@ -2399,16 +2343,25 @@
       const actualMin = Math.min(minIndex, maxIndex);
       const actualMax = Math.max(minIndex, maxIndex);
       
+      // 计算位置总数
+      const totalPositions = actualMax - actualMin + 1;
+      
       let randomIndex;
       
       // 如果不重复随机功能启用
       if (nonRepeatProps.count > 0) {
-        // 如果历史记录数量达到限制，清空历史记录
-        if (nonRepeatProps.history.length >= nonRepeatProps.count) {
-          nonRepeatProps.history = [];
+        // 如果历史记录为空，先记录当前音符位置
+        if (nonRepeatProps.history.length === 0) {
+          // 获取当前音符的位置索引
+          const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2;
+          const currentIndex = Math.round((basePosition - currentY) / (spacing / 2));
+          if (currentIndex >= actualMin && currentIndex <= actualMax) {
+            nonRepeatProps.history.push(currentIndex);
+            updateNonRepeatHistoryDisplay();
+          }
         }
         
-        // 生成可用位置列表
+        // 生成可用位置列表（排除历史记录中的位置）
         const availablePositions = [];
         for (let i = actualMin; i <= actualMax; i++) {
           if (!nonRepeatProps.history.includes(i)) {
@@ -2416,22 +2369,29 @@
           }
         }
         
-        // 如果没有可用位置，清空历史记录重新开始
-        if (availablePositions.length === 0) {
+        // 检查是否只剩下最后一个位置
+        if (availablePositions.length === 1) {
+          // 只剩下最后一个位置，选择它
+          randomIndex = availablePositions[0];
+          
+          // 清空历史记录，只保留这个最后的位置
+          nonRepeatProps.history = [randomIndex];
+        } else if (availablePositions.length === 0) {
+          // 理论上不应该发生，但如果发生则重新开始
           nonRepeatProps.history = [];
-          for (let i = actualMin; i <= actualMax; i++) {
-            availablePositions.push(i);
+          randomIndex = Math.floor(Math.random() * (actualMax - actualMin + 1)) + actualMin;
+        } else {
+          // 从可用位置中随机选择一个
+          randomIndex = availablePositions[Math.floor(Math.random() * availablePositions.length)];
+          
+          // 将这次随机的位置加入历史记录
+          nonRepeatProps.history.push(randomIndex);
+          
+          // 如果历史记录长度超过不重复数量，则删除最早的历史记录
+          if (nonRepeatProps.history.length > nonRepeatProps.count) {
+            nonRepeatProps.history.shift();
           }
         }
-        
-        // 从可用位置中随机选择一个
-        randomIndex = availablePositions[Math.floor(Math.random() * availablePositions.length)];
-        
-        // 添加到历史记录
-        nonRepeatProps.history.push(randomIndex);
-        
-        // 更新历史记录显示
-        updateNonRepeatHistoryDisplay();
       } else {
         // 普通随机模式（允许重复）
         randomIndex = Math.floor(Math.random() * (actualMax - actualMin + 1)) + actualMin;
@@ -2452,6 +2412,9 @@
       
       // 重绘
       drawLines();
+      
+      // 更新历史记录显示
+      updateNonRepeatHistoryDisplay();
     }
     
     // 根据音名移动音符到对应的五线谱位置
@@ -2700,13 +2663,351 @@
       pianoHeightInput.value = pianoHeightSlider.value;
       pianoPositionValue.textContent = `${pianoPositionSlider.value}px`;
       pianoPositionInput.value = pianoPositionSlider.value;
-      pianoHorizontalValue.textContent = `${pianoHorizontalSlider.value}px`;
-      pianoHorizontalInput.value = pianoHorizontalSlider.value;
       pianoKeyWidthValue.textContent = `${pianoKeyWidthSlider.value}px`;
       pianoKeyWidthInput.value = pianoKeyWidthSlider.value;
-      pianoGroupsValue.textContent = `${pianoGroupsSlider.value}组`;
-      pianoGroupsInput.value = pianoGroupsSlider.value;
     }
+    
+    // 设置不重复随机数量滑块和输入框同步
+    function setupSliderInputSync(slider, input, min, max, updateFunction) {
+      slider.addEventListener('input', () => {
+        input.value = slider.value;
+        updateFunction();
+        if (updateFunction === updatePianoValueDisplay) {
+          // 对于钢琴设置，需要调用相应的更新函数
+          if (slider === pianoHeightSlider) {
+            pianoProps.height = parseInt(pianoHeightSlider.value);
+            updatePianoHeight();
+            drawPiano();
+          } else if (slider === pianoPositionSlider) {
+            pianoProps.position = parseInt(pianoPositionSlider.value);
+            updatePianoPosition();
+          } else if (slider === pianoKeyWidthSlider) {
+            pianoProps.keyWidth = parseInt(pianoKeyWidthSlider.value);
+            updatePianoKeyWidth();
+          }
+        } else {
+          drawLines();
+        }
+      });
+      
+      input.addEventListener('input', () => {
+        let value = parseInt(input.value);
+        if (isNaN(value)) value = min;
+        if (value < min) value = min;
+        if (value > max) value = max;
+        input.value = value;
+        slider.value = value;
+        updateFunction();
+        if (updateFunction === updatePianoValueDisplay) {
+          // 对于钢琴设置，需要调用相应的更新函数
+          if (input === pianoHeightInput) {
+            pianoProps.height = parseInt(pianoHeightInput.value);
+            updatePianoHeight();
+            drawPiano();
+          } else if (input === pianoPositionInput) {
+            pianoProps.position = parseInt(pianoPositionInput.value);
+            updatePianoPosition();
+          } else if (input === pianoKeyWidthInput) {
+            pianoProps.keyWidth = parseInt(pianoKeyWidthInput.value);
+            updatePianoKeyWidth();
+          }
+        } else {
+          drawLines();
+        }
+      });
+      
+      input.addEventListener('change', () => {
+        let value = parseInt(input.value);
+        if (isNaN(value)) value = min;
+        if (value < min) value = min;
+        if (value > max) value = max;
+        input.value = value;
+        slider.value = value;
+        updateFunction();
+        if (updateFunction === updatePianoValueDisplay) {
+          // 对于钢琴设置，需要调用相应的更新函数
+          if (input === pianoHeightInput) {
+            pianoProps.height = parseInt(pianoHeightInput.value);
+            updatePianoHeight();
+            drawPiano();
+          } else if (input === pianoPositionInput) {
+            pianoProps.position = parseInt(pianoPositionInput.value);
+            updatePianoPosition();
+          } else if (input === pianoKeyWidthInput) {
+            pianoProps.keyWidth = parseInt(pianoKeyWidthInput.value);
+            updatePianoKeyWidth();
+          }
+        } else {
+          drawLines();
+        }
+      });
+    }
+    
+    // 设置线条设置的滑块和输入框同步
+    setupSliderInputSync(spacingSlider, spacingInput, 10, 100, updateLinesValueDisplay);
+    setupSliderInputSync(positionSlider, positionInput, 50, 800, updateLinesValueDisplay);
+    setupSliderInputSync(thicknessSlider, thicknessInput, 1, 10, updateLinesValueDisplay);
+    setupSliderInputSync(lengthSlider, lengthInput, 30, 100, updateLinesValueDisplay);
+    setupSliderInputSync(snapStrengthSlider, snapStrengthInput, 10, 50, updateLinesValueDisplay);
+    
+    // 设置谱号设置的滑块和输入框同步
+    setupSliderInputSync(clefSizeSlider, clefSizeInput, 50, 200, updateClefValueDisplay);
+    
+    // 设置全音符设置的滑块和输入框同步
+    setupSliderInputSync(noteXSlider, noteXInput, 50, 800, updateNoteValueDisplay);
+    setupSliderInputSync(noteYSlider, noteYInput, 50, 500, updateNoteValueDisplay);
+    setupSliderInputSync(noteSizeSlider, noteSizeInput, 5, 200, updateNoteValueDisplay);
+    
+    // 设置文本设置的滑块和输入框同步
+    setupSliderInputSync(textSizeSlider, textSizeInput, 8, 30, updateTextValueDisplay);
+    
+    // 设置钢琴键盘设置的滑块和输入框同步
+    setupSliderInputSync(pianoHeightSlider, pianoHeightInput, 80, 300, updatePianoValueDisplay);
+    setupSliderInputSync(pianoPositionSlider, pianoPositionInput, 0, 500, updatePianoValueDisplay);
+    setupSliderInputSync(pianoKeyWidthSlider, pianoKeyWidthInput, 20, 80, updatePianoValueDisplay);
+    
+    // 其他事件监听
+    colorPicker.addEventListener('input', drawLines);
+    
+    snapEnabledCheckbox.addEventListener('change', () => {
+      snapProps.enabled = snapEnabledCheckbox.checked;
+      drawLines();
+    });
+    
+    snapStrengthSlider.addEventListener('input', () => {
+      snapProps.strength = parseInt(snapStrengthSlider.value);
+      updateLinesValueDisplay();
+      drawLines();
+    });
+    
+    showClefCheckbox.addEventListener('change', () => {
+      clefProps.show = showClefCheckbox.checked;
+      drawLines();
+    });
+    
+    clefAutoSnapCheckbox.addEventListener('change', () => {
+      clefProps.autoSnap = clefAutoSnapCheckbox.checked;
+      drawLines();
+    });
+    
+    clefSizeSlider.addEventListener('input', () => {
+      clefProps.size = parseInt(clefSizeSlider.value);
+      updateClefValueDisplay();
+      drawLines();
+    });
+    
+    showNoteCheckbox.addEventListener('change', () => {
+      noteProps.show = showNoteCheckbox.checked;
+      drawLines();
+    });
+    
+    textColorPicker.addEventListener('input', () => {
+      textProps.color = textColorPicker.value;
+      updatePositionDisplayStyle();
+      updateNonRepeatHistoryDisplay();
+    });
+    
+    textSizeSlider.addEventListener('input', () => {
+      textProps.size = parseInt(textSizeSlider.value);
+      updateTextValueDisplay();
+      updatePositionDisplayStyle();
+      updateNonRepeatHistoryDisplay();
+    });
+    
+    textFontSelect.addEventListener('change', () => {
+      textProps.font = textFontSelect.value;
+      updatePositionDisplayStyle();
+      updateNonRepeatHistoryDisplay();
+    });
+    
+    showPositionDisplayCheckbox.addEventListener('change', () => {
+      textProps.showPositionDisplay = showPositionDisplayCheckbox.checked;
+      updatePositionDisplayStyle();
+    });
+    
+    showRandomButtonCheckbox.addEventListener('change', () => {
+      textProps.showRandomButton = showRandomButtonCheckbox.checked;
+      updateRandomButtonDisplay();
+    });
+    
+    showNonRepeatHistoryCheckbox.addEventListener('change', () => {
+      textProps.showNonRepeatHistory = showNonRepeatHistoryCheckbox.checked;
+      updateNonRepeatHistoryDisplay();
+    });
+    
+    showPianoCheckbox.addEventListener('change', () => {
+      pianoProps.show = showPianoCheckbox.checked;
+      pianoContainer.style.display = pianoProps.show ? 'block' : 'none';
+    });
+    
+    pianoHeightSlider.addEventListener('input', () => {
+      pianoProps.height = parseInt(pianoHeightSlider.value);
+      updatePianoHeight();
+      drawPiano();
+    });
+    
+    pianoPositionSlider.addEventListener('input', () => {
+      pianoProps.position = parseInt(pianoPositionSlider.value);
+      updatePianoPosition();
+    });
+    
+    pianoKeyWidthSlider.addEventListener('input', () => {
+      pianoProps.keyWidth = parseInt(pianoKeyWidthSlider.value);
+      updatePianoKeyWidth();
+    });
+    
+    showAllNamesCheckbox.addEventListener('change', () => {
+      pianoProps.showAllNames = showAllNamesCheckbox.checked;
+      if (pianoProps.showAllNames) {
+        showOnlyCentralCCheckbox.checked = false;
+        pianoProps.showOnlyCentralC = false;
+      }
+      updatePianoKeyLabels();
+    });
+    
+    showOnlyCentralCCheckbox.addEventListener('change', () => {
+      pianoProps.showOnlyCentralC = showOnlyCentralCCheckbox.checked;
+      if (pianoProps.showOnlyCentralC) {
+        showAllNamesCheckbox.checked = false;
+        pianoProps.showAllNames = false;
+      }
+      updatePianoKeyLabels();
+    });
+    
+    enablePinchZoomCheckbox.addEventListener('change', () => {
+      pianoProps.enablePinchZoom = enablePinchZoomCheckbox.checked;
+    });
+    
+    // MIDI设置事件监听
+    enableMidiInputCheckbox.addEventListener('change', () => {
+      toggleMidiInput(enableMidiInputCheckbox.checked);
+    });
+    
+    midiNoteCompareCheckbox.addEventListener('change', () => {
+      midiProps.noteCompare = midiNoteCompareCheckbox.checked;
+    });
+    
+    midiDeviceSelect.addEventListener('change', () => {
+      selectMidiDevice(midiDeviceSelect.value);
+    });
+    
+    midiRefreshBtn.addEventListener('click', () => {
+      refreshMidiDevices();
+    });
+    
+    // 不重复随机数量变化事件
+    nonRepeatSlider.addEventListener('input', () => {
+      nonRepeatProps.count = parseInt(nonRepeatSlider.value);
+      updateNonRepeatValueDisplay();
+      updateNonRepeatHistoryDisplay();
+      
+      // 如果不重复数量改变，重新初始化历史记录
+      if (nonRepeatProps.count > 0) {
+        // 获取当前音符的位置索引
+        const basePosition = parseInt(positionSlider.value);
+        const spacing = parseInt(spacingSlider.value);
+        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2;
+        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2));
+        
+        // 如果当前索引在范围内，记录它
+        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+          nonRepeatProps.history = [currentIndex];
+        } else {
+          nonRepeatProps.history = [];
+        }
+      } else {
+        // 如果关闭不重复功能，清空历史记录
+        nonRepeatProps.history = [];
+      }
+      updateNonRepeatHistoryDisplay();
+    });
+    
+    nonRepeatInput.addEventListener('input', () => {
+      let value = parseInt(nonRepeatInput.value);
+      if (isNaN(value)) value = 0;
+      if (value < 0) value = 0;
+      if (value > nonRepeatProps.maxCount) value = nonRepeatProps.maxCount;
+      nonRepeatInput.value = value;
+      nonRepeatSlider.value = value;
+      nonRepeatProps.count = value;
+      updateNonRepeatValueDisplay();
+      updateNonRepeatHistoryDisplay();
+      
+      // 如果不重复数量改变，重新初始化历史记录
+      if (nonRepeatProps.count > 0) {
+        // 获取当前音符的位置索引
+        const basePosition = parseInt(positionSlider.value);
+        const spacing = parseInt(spacingSlider.value);
+        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2;
+        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2));
+        
+        // 如果当前索引在范围内，记录它
+        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+          nonRepeatProps.history = [currentIndex];
+        } else {
+          nonRepeatProps.history = [];
+        }
+      } else {
+        // 如果关闭不重复功能，清空历史记录
+        nonRepeatProps.history = [];
+      }
+      updateNonRepeatHistoryDisplay();
+    });
+    
+    // 随机范围变化时更新不重复随机数量的最大值
+    minPositionSelect.addEventListener('change', () => {
+      randomRangeProps.minIndex = parseInt(minPositionSelect.value);
+      updateNonRepeatMaxCount();
+      
+      // 重新初始化历史记录
+      if (nonRepeatProps.count > 0) {
+        // 获取当前音符的位置索引
+        const basePosition = parseInt(positionSlider.value);
+        const spacing = parseInt(spacingSlider.value);
+        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2;
+        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2));
+        
+        // 如果当前索引在范围内，记录它
+        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+          nonRepeatProps.history = [currentIndex];
+        } else {
+          nonRepeatProps.history = [];
+        }
+      }
+      updateNonRepeatHistoryDisplay();
+      randomMoveNote(); // 设置后立即执行一次随机
+    });
+    
+    maxPositionSelect.addEventListener('change', () => {
+      randomRangeProps.maxIndex = parseInt(maxPositionSelect.value);
+      updateNonRepeatMaxCount();
+      
+      // 重新初始化历史记录
+      if (nonRepeatProps.count > 0) {
+        // 获取当前音符的位置索引
+        const basePosition = parseInt(positionSlider.value);
+        const spacing = parseInt(spacingSlider.value);
+        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2;
+        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2));
+        
+        // 如果当前索引在范围内，记录它
+        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex);
+        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+          nonRepeatProps.history = [currentIndex];
+        } else {
+          nonRepeatProps.history = [];
+        }
+      }
+      updateNonRepeatHistoryDisplay();
+      randomMoveNote(); // 设置后立即执行一次随机
+    });
     
     // 获取触摸或鼠标事件的坐标
     function getEventPosition(e) {
@@ -2781,13 +3082,14 @@
       if (e.type === 'mousedown' || e.type === 'touchstart') {
         // 检查是否点击在钢琴拖拽区域上
         if (pianoProps.show) {
-          const pianoDragRect = pianoDragHandle.getBoundingClientRect();
+          const pianoRect = pianoContainer.getBoundingClientRect();
           const canvasRect = canvas.getBoundingClientRect();
           const dragX = mouseX;
-          const dragY = mouseY + canvasRect.top - pianoDragRect.top;
+          const dragY = mouseY + canvasRect.top - pianoRect.top;
           
-          if (dragX >= 0 && dragX <= pianoDragRect.width &&
-              dragY >= 0 && dragY <= pianoDragRect.height) {
+          // 检测拖拽区域（键盘上边往上26个像素）
+          if (dragX >= 0 && dragX <= pianoRect.width &&
+              dragY >= -26 && dragY <= 0) { // 检测顶部26px的拖拽区域
             pianoProps.isDragging = true;
             noteProps.isDragging = false;
             clefProps.isDragging = false;
@@ -2908,12 +3210,34 @@
         // 拖拽钢琴键盘
         else if (pianoProps.isDragging) {
           const deltaX = mouseX - pianoProps.offsetX;
-          pianoProps.horizontal += deltaX;
-          pianoProps.horizontal = Math.max(-500, Math.min(500, pianoProps.horizontal));
-          pianoProps.offsetX = mouseX;
+          const deltaY = mouseY - pianoProps.offsetY;
           
-          pianoHorizontalSlider.value = Math.round(pianoProps.horizontal);
-          updatePianoValueDisplay();
+          // 更新水平位置
+          pianoProps.horizontal += deltaX;
+          
+          // 计算边界限制
+          const totalWhiteKeys = 52;
+          const pianoWidth = pianoProps.keyWidth * totalWhiteKeys * pianoProps.scale;
+          const canvasWidth = canvas.clientWidth;
+          const maxHorizontal = canvasWidth / 2; // 键盘最左边不能超过画布中心
+          const minHorizontal = -(pianoWidth - canvasWidth / 2); // 键盘最右边不能超过画布中心
+          
+          pianoProps.horizontal = Math.max(minHorizontal, Math.min(maxHorizontal, pianoProps.horizontal));
+          
+          // 更新垂直位置
+          pianoProps.position -= deltaY;
+          
+          // 计算垂直边界限制
+          const pianoHeight = pianoProps.height;
+          const canvasHeight = canvas.clientHeight;
+          const maxPosition = canvasHeight - pianoHeight; // 键盘底部不能超过屏幕底部
+          const minPosition = 0; // 键盘顶部不能超过屏幕顶部
+          
+          pianoProps.position = Math.max(minPosition, Math.min(maxPosition, pianoProps.position));
+          
+          pianoProps.offsetX = mouseX;
+          pianoProps.offsetY = mouseY;
+          
           updatePianoPosition();
         }
         // 鼠标悬停时改变光标（仅鼠标事件）
@@ -2922,13 +3246,14 @@
           
           // 检查是否悬停在钢琴拖拽区域上
           if (pianoProps.show) {
-            const pianoDragRect = pianoDragHandle.getBoundingClientRect();
+            const pianoRect = pianoContainer.getBoundingClientRect();
             const canvasRect = canvas.getBoundingClientRect();
             const dragX = mouseX;
-            const dragY = mouseY + canvasRect.top - pianoDragRect.top;
+            const dragY = mouseY + canvasRect.top - pianoRect.top;
             
-            if (dragX >= 0 && dragX <= pianoDragRect.width &&
-                dragY >= 0 && dragY <= pianoDragRect.height) {
+            // 检测拖拽区域（键盘上边往上26个像素）
+            if (dragX >= 0 && dragX <= pianoRect.width &&
+                dragY >= -26 && dragY <= 0) { // 检测顶部26px的拖拽区域
               canvas.style.cursor = 'grab';
               isOverElement = true;
             }
@@ -2997,12 +3322,6 @@
       updatePianoPosition();
     }
     
-    // 更新钢琴键盘组数
-    function updatePianoGroups() {
-      drawPiano();
-      updatePianoPosition();
-    }
-    
     // 更新钢琴键盘音名显示
     function updatePianoKeyLabels() {
       drawPiano();
@@ -3025,248 +3344,6 @@
     canvas.addEventListener('touchmove', handleDrag, { passive: false });
     canvas.addEventListener('touchend', handleDrag, { passive: false });
     canvas.addEventListener('touchcancel', handleDrag, { passive: false });
-    
-    // 设置滑块和输入框事件同步函数
-    function setupSliderInputSync(slider, input, min, max, updateFunction) {
-      slider.addEventListener('input', () => {
-        input.value = slider.value;
-        updateFunction();
-        drawLines();
-      });
-      
-      input.addEventListener('input', () => {
-        let value = parseInt(input.value);
-        if (isNaN(value)) value = min;
-        if (value < min) value = min;
-        if (value > max) value = max;
-        input.value = value;
-        slider.value = value;
-        updateFunction();
-        drawLines();
-      });
-      
-      input.addEventListener('change', () => {
-        let value = parseInt(input.value);
-        if (isNaN(value)) value = min;
-        if (value < min) value = min;
-        if (value > max) value = max;
-        input.value = value;
-        slider.value = value;
-        updateFunction();
-        drawLines();
-      });
-    }
-    
-    // 设置线条设置的滑块和输入框同步
-    setupSliderInputSync(spacingSlider, spacingInput, 10, 100, updateLinesValueDisplay);
-    setupSliderInputSync(positionSlider, positionInput, 50, 800, updateLinesValueDisplay);
-    setupSliderInputSync(thicknessSlider, thicknessInput, 1, 10, updateLinesValueDisplay);
-    setupSliderInputSync(lengthSlider, lengthInput, 30, 100, updateLinesValueDisplay);
-    setupSliderInputSync(snapStrengthSlider, snapStrengthInput, 10, 50, updateLinesValueDisplay);
-    
-    // 设置谱号设置的滑块和输入框同步
-    setupSliderInputSync(clefSizeSlider, clefSizeInput, 50, 200, updateClefValueDisplay);
-    
-    // 设置全音符设置的滑块和输入框同步
-    setupSliderInputSync(noteXSlider, noteXInput, 50, 800, updateNoteValueDisplay);
-    setupSliderInputSync(noteYSlider, noteYInput, 50, 500, updateNoteValueDisplay);
-    setupSliderInputSync(noteSizeSlider, noteSizeInput, 5, 200, updateNoteValueDisplay);
-    
-    // 设置文本设置的滑块和输入框同步
-    setupSliderInputSync(textSizeSlider, textSizeInput, 8, 30, updateTextValueDisplay);
-    
-    // 设置钢琴键盘设置的滑块和输入框同步
-    setupSliderInputSync(pianoHeightSlider, pianoHeightInput, 80, 300, updatePianoValueDisplay);
-    setupSliderInputSync(pianoPositionSlider, pianoPositionInput, 0, 500, updatePianoValueDisplay);
-    setupSliderInputSync(pianoHorizontalSlider, pianoHorizontalInput, -500, 500, updatePianoValueDisplay);
-    setupSliderInputSync(pianoKeyWidthSlider, pianoKeyWidthInput, 20, 80, updatePianoValueDisplay);
-    setupSliderInputSync(pianoGroupsSlider, pianoGroupsInput, 1, 7, updatePianoValueDisplay);
-    
-    // 设置不重复随机数量滑块和输入框同步
-    setupSliderInputSync(nonRepeatSlider, nonRepeatInput, 0, 10, updateNonRepeatValueDisplay);
-    
-    // 其他事件监听
-    colorPicker.addEventListener('input', drawLines);
-    
-    snapEnabledCheckbox.addEventListener('change', () => {
-      snapProps.enabled = snapEnabledCheckbox.checked;
-      drawLines();
-    });
-    
-    snapStrengthSlider.addEventListener('input', () => {
-      snapProps.strength = parseInt(snapStrengthSlider.value);
-      updateLinesValueDisplay();
-      drawLines();
-    });
-    
-    showClefCheckbox.addEventListener('change', () => {
-      clefProps.show = showClefCheckbox.checked;
-      drawLines();
-    });
-    
-    clefAutoSnapCheckbox.addEventListener('change', () => {
-      clefProps.autoSnap = clefAutoSnapCheckbox.checked;
-      drawLines();
-    });
-    
-    clefSizeSlider.addEventListener('input', () => {
-      clefProps.size = parseInt(clefSizeSlider.value);
-      updateClefValueDisplay();
-      drawLines();
-    });
-    
-    showNoteCheckbox.addEventListener('change', () => {
-      noteProps.show = showNoteCheckbox.checked;
-      drawLines();
-    });
-    
-    textColorPicker.addEventListener('input', () => {
-      textProps.color = textColorPicker.value;
-      updatePositionDisplayStyle();
-      updateNonRepeatHistoryDisplay();
-    });
-    
-    textSizeSlider.addEventListener('input', () => {
-      textProps.size = parseInt(textSizeSlider.value);
-      updateTextValueDisplay();
-      updatePositionDisplayStyle();
-      updateNonRepeatHistoryDisplay();
-    });
-    
-    textFontSelect.addEventListener('change', () => {
-      textProps.font = textFontSelect.value;
-      updatePositionDisplayStyle();
-      updateNonRepeatHistoryDisplay();
-    });
-    
-    showPositionDisplayCheckbox.addEventListener('change', () => {
-      textProps.showPositionDisplay = showPositionDisplayCheckbox.checked;
-      updatePositionDisplayStyle();
-    });
-    
-    showRandomButtonCheckbox.addEventListener('change', () => {
-      textProps.showRandomButton = showRandomButtonCheckbox.checked;
-      updateRandomButtonDisplay();
-    });
-    
-    showNonRepeatHistoryCheckbox.addEventListener('change', () => {
-      textProps.showNonRepeatHistory = showNonRepeatHistoryCheckbox.checked;
-      updateNonRepeatHistoryDisplay();
-    });
-    
-    showPianoCheckbox.addEventListener('change', () => {
-      pianoProps.show = showPianoCheckbox.checked;
-      pianoContainer.style.display = pianoProps.show ? 'block' : 'none';
-    });
-    
-    pianoHeightSlider.addEventListener('input', () => {
-      pianoProps.height = parseInt(pianoHeightSlider.value);
-      updatePianoHeight();
-      drawPiano();
-    });
-    
-    pianoPositionSlider.addEventListener('input', () => {
-      pianoProps.position = parseInt(pianoPositionSlider.value);
-      updatePianoPosition();
-    });
-    
-    pianoHorizontalSlider.addEventListener('input', () => {
-      pianoProps.horizontal = parseInt(pianoHorizontalSlider.value);
-      updatePianoPosition();
-    });
-    
-    pianoKeyWidthSlider.addEventListener('input', () => {
-      pianoProps.keyWidth = parseInt(pianoKeyWidthSlider.value);
-      updatePianoKeyWidth();
-    });
-    
-    pianoGroupsSlider.addEventListener('input', () => {
-      pianoProps.groups = parseInt(pianoGroupsSlider.value);
-      updatePianoGroups();
-    });
-    
-    showAllNamesCheckbox.addEventListener('change', () => {
-      pianoProps.showAllNames = showAllNamesCheckbox.checked;
-      if (pianoProps.showAllNames) {
-        showOnlyCentralCCheckbox.checked = false;
-        pianoProps.showOnlyCentralC = false;
-      }
-      updatePianoKeyLabels();
-    });
-    
-    showOnlyCentralCCheckbox.addEventListener('change', () => {
-      pianoProps.showOnlyCentralC = showOnlyCentralCCheckbox.checked;
-      if (pianoProps.showOnlyCentralC) {
-        showAllNamesCheckbox.checked = false;
-        pianoProps.showAllNames = false;
-      }
-      updatePianoKeyLabels();
-    });
-    
-    enablePinchZoomCheckbox.addEventListener('change', () => {
-      pianoProps.enablePinchZoom = enablePinchZoomCheckbox.checked;
-    });
-    
-    // MIDI设置事件监听
-    enableMidiInputCheckbox.addEventListener('change', () => {
-      toggleMidiInput(enableMidiInputCheckbox.checked);
-    });
-    
-    midiNoteCompareCheckbox.addEventListener('change', () => {
-      midiProps.noteCompare = midiNoteCompareCheckbox.checked;
-    });
-    
-    midiDeviceSelect.addEventListener('change', () => {
-      selectMidiDevice(midiDeviceSelect.value);
-    });
-    
-    midiRefreshBtn.addEventListener('click', () => {
-      refreshMidiDevices();
-    });
-    
-    // 不重复随机数量变化事件
-    nonRepeatSlider.addEventListener('input', () => {
-      nonRepeatProps.count = parseInt(nonRepeatSlider.value);
-      updateNonRepeatValueDisplay();
-      updateNonRepeatHistoryDisplay();
-      
-      // 如果不重复数量设置为0，清空历史记录
-      if (nonRepeatProps.count === 0) {
-        nonRepeatProps.history = [];
-        updateNonRepeatHistoryDisplay();
-      }
-    });
-    
-    nonRepeatInput.addEventListener('input', () => {
-      let value = parseInt(nonRepeatInput.value);
-      if (isNaN(value)) value = 0;
-      if (value < 0) value = 0;
-      if (value > nonRepeatProps.maxCount) value = nonRepeatProps.maxCount;
-      nonRepeatInput.value = value;
-      nonRepeatSlider.value = value;
-      nonRepeatProps.count = value;
-      updateNonRepeatValueDisplay();
-      updateNonRepeatHistoryDisplay();
-      
-      // 如果不重复数量设置为0，清空历史记录
-      if (nonRepeatProps.count === 0) {
-        nonRepeatProps.history = [];
-        updateNonRepeatHistoryDisplay();
-      }
-    });
-    
-    // 随机范围变化时更新不重复随机数量的最大值
-    minPositionSelect.addEventListener('change', () => {
-      randomRangeProps.minIndex = parseInt(minPositionSelect.value);
-      updateNonRepeatMaxCount();
-      randomMoveNote(); // 设置后立即执行一次随机
-    });
-    
-    maxPositionSelect.addEventListener('change', () => {
-      randomRangeProps.maxIndex = parseInt(maxPositionSelect.value);
-      updateNonRepeatMaxCount();
-      randomMoveNote(); // 设置后立即执行一次随机
-    });
     
     let randomBtnProps = {
       isDragging: false,
@@ -3411,19 +3488,16 @@
     pianoResetBtn.addEventListener('click', () => {
       showPianoCheckbox.checked = true;
       pianoHeightSlider.value = 150;
-      pianoPositionSlider.value = 0;
-      pianoHorizontalSlider.value = 0;
+      pianoPositionSlider.value = 100;
       pianoKeyWidthSlider.value = 40;
-      pianoGroupsSlider.value = 7;
       showAllNamesCheckbox.checked = true;
       showOnlyCentralCCheckbox.checked = false;
       enablePinchZoomCheckbox.checked = true;
       pianoProps.show = true;
       pianoProps.height = 150;
-      pianoProps.position = 0;
+      pianoProps.position = 100;
       pianoProps.horizontal = 0;
       pianoProps.keyWidth = 40;
-      pianoProps.groups = 7;
       pianoProps.showAllNames = true;
       pianoProps.showOnlyCentralC = false;
       pianoProps.enablePinchZoom = true;
@@ -3432,7 +3506,6 @@
       updatePianoHeight();
       updatePianoPosition();
       updatePianoKeyWidth();
-      updatePianoGroups();
       pianoContainer.style.display = 'block';
       drawPiano();
     });
