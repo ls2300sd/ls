@@ -8,6 +8,86 @@
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
   
   <style>
+    /* 原有样式保持不变，只添加蓝牙MIDI相关样式 */
+    
+    /* 蓝牙MIDI连接状态 */
+    .bluetooth-status {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background-color: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(4px);
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.3s;
+      color: #000000;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+    }
+    
+    .bluetooth-connected {
+      color: #10b981;
+    }
+    
+    .bluetooth-disconnected {
+      color: #ef4444;
+    }
+    
+    .bluetooth-connecting {
+      color: #f59e0b;
+    }
+    
+    /* 蓝牙MIDI设备列表样式 */
+    .bluetooth-device-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .bluetooth-device-item:last-child {
+      border-bottom: none;
+    }
+    
+    .bluetooth-device-info {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .bluetooth-device-name {
+      font-weight: 600;
+    }
+    
+    .bluetooth-device-id {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+    
+    .bluetooth-connect-btn {
+      background-color: #2563eb;
+      color: white;
+      padding: 0.25rem 0.75rem;
+      border-radius: 0.25rem;
+      border: none;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+    
+    .bluetooth-connect-btn:hover {
+      background-color: rgba(37, 99, 235, 0.9);
+    }
+    
+    .bluetooth-connect-btn:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
+    
+    /* 其他原有样式保持不变 */
     body {
       margin: 0;
       padding: 0;
@@ -453,6 +533,12 @@
         bottom: 6rem;
         max-height: 80px;
       }
+      
+      .bluetooth-status {
+        top: 4rem;
+        left: 1rem;
+        right: auto;
+      }
     }
   </style>
 </head>
@@ -530,6 +616,12 @@
     <div id="midi-status" class="midi-status midi-disconnected">
       <i class="fa fa-plug mr-2"></i>
       <span id="midi-status-text">MIDI设备未连接</span>
+    </div>
+    
+    <!-- 蓝牙MIDI状态显示 -->
+    <div id="bluetooth-status" class="bluetooth-status bluetooth-disconnected">
+      <i class="fa fa-bluetooth mr-2"></i>
+      <span id="bluetooth-status-text">蓝牙MIDI未连接</span>
     </div>
     
     <!-- 音符位置显示 -->
@@ -1129,6 +1221,42 @@
           >
         </div>
         
+        <!-- 蓝牙MIDI设备连接 -->
+        <div class="slider-wrapper">
+          <div class="slider-label">
+            <span>蓝牙MIDI设备</span>
+          </div>
+          <div id="bluetooth-devices-list" class="border border-gray-300 rounded-lg p-2 max-h-40 overflow-y-auto">
+            <div class="text-center text-gray-500 py-4">点击"扫描设备"查找蓝牙MIDI设备</div>
+          </div>
+          <div class="flex space-x-2 mt-2">
+            <button id="bluetooth-scan-btn" class="flex-1 btn-primary">
+              <i class="fa fa-search mr-2"></i>扫描设备
+            </button>
+            <button id="bluetooth-disconnect-btn" class="flex-1 btn-primary bg-gray-600 hover:bg-gray-700">
+              <i class="fa fa-times mr-2"></i>断开连接
+            </button>
+          </div>
+        </div>
+        
+        <!-- 蓝牙MIDI连接状态 -->
+        <div class="slider-wrapper">
+          <div class="slider-label">
+            <span>蓝牙MIDI状态</span>
+            <span id="bluetooth-device-status" class="text-sm font-mono bluetooth-disconnected">未连接</span>
+          </div>
+        </div>
+        
+        <!-- 启用蓝牙MIDI输入控制 -->
+        <div class="slider-wrapper flex items-center justify-between">
+          <label class="text-sm font-medium text-gray-600">启用蓝牙MIDI输入</label>
+          <input 
+            type="checkbox" 
+            id="enable-bluetooth-midi" 
+            class="w-5 h-5 accent-blue-600"
+          >
+        </div>
+        
         <!-- 按钮区域 -->
         <div class="flex space-x-3 mt-4">
           <button id="midi-refresh-btn" class="flex-1 btn-primary bg-gray-600 hover:bg-gray-700">
@@ -1386,6 +1514,15 @@
     const enableMidiInputCheckbox = document.getElementById('enable-midi-input');
     const midiNoteCompareCheckbox = document.getElementById('midi-note-compare');
     
+    // 蓝牙MIDI相关元素
+    const bluetoothStatus = document.getElementById('bluetooth-status');
+    const bluetoothStatusText = document.getElementById('bluetooth-status-text');
+    const bluetoothDevicesList = document.getElementById('bluetooth-devices-list');
+    const bluetoothScanBtn = document.getElementById('bluetooth-scan-btn');
+    const bluetoothDisconnectBtn = document.getElementById('bluetooth-disconnect-btn');
+    const bluetoothDeviceStatus = document.getElementById('bluetooth-device-status');
+    const enableBluetoothMidiCheckbox = document.getElementById('enable-bluetooth-midi');
+    
     // 随机范围设置模态框相关元素
     const randomRangeContainer = document.getElementById('random-range-container');
     const randomRangeModal = document.getElementById('random-range-modal');
@@ -1533,6 +1670,17 @@
       noteCompare: true,       // MIDI音符对比功能
       lastNote: null,          // 最后一个MIDI音符
       activeNotes: new Set()   // 当前活动的MIDI音符
+    };
+    
+    // 蓝牙MIDI设备属性
+    let bluetoothProps = {
+      enabled: false,          // 是否启用蓝牙MIDI
+      device: null,            // 连接的蓝牙设备
+      server: null,            // GATT服务器
+      characteristic: null,    // MIDI特性
+      devices: [],             // 发现的设备列表
+      isScanning: false,       // 是否正在扫描
+      isConnecting: false      // 是否正在连接
     };
     
     // 音名映射关系 - 下加一线为C4，其他按顺序顺延
@@ -2005,6 +2153,30 @@
         midiStatus.classList.remove('midi-connected');
         midiStatus.classList.add('midi-disconnected');
         midiStatusText.textContent = 'MIDI设备未连接';
+      }
+    }
+    
+    // 更新蓝牙MIDI状态显示
+    function updateBluetoothStatus() {
+      if (bluetoothProps.enabled && bluetoothProps.device && bluetoothProps.device.gatt.connected) {
+        bluetoothStatus.classList.remove('bluetooth-disconnected');
+        bluetoothStatus.classList.add('bluetooth-connected');
+        bluetoothStatusText.textContent = '蓝牙MIDI已连接';
+        
+        bluetoothDeviceStatus.textContent = '已连接';
+        bluetoothDeviceStatus.className = 'text-sm font-mono bluetooth-connected';
+      } else {
+        bluetoothStatus.classList.remove('bluetooth-connected');
+        bluetoothStatus.classList.add('bluetooth-disconnected');
+        bluetoothStatusText.textContent = '蓝牙MIDI未连接';
+        
+        if (bluetoothProps.isConnecting) {
+          bluetoothStatus.classList.add('bluetooth-connecting');
+          bluetoothStatusText.textContent = '蓝牙MIDI连接中...';
+        }
+        
+        bluetoothDeviceStatus.textContent = '未连接';
+        bluetoothDeviceStatus.className = 'text-sm font-mono bluetooth-disconnected';
       }
     }
     
@@ -2504,6 +2676,70 @@
       }
     }
     
+    // 处理蓝牙MIDI输入
+    function handleBluetoothMidiMessage(event) {
+      // 蓝牙MIDI数据格式与标准MIDI不同，需要解析
+      const data = new Uint8Array(event.target.value.buffer);
+      
+      // 解析MIDI消息
+      for (let i = 0; i < data.length; i++) {
+        // 查找MIDI状态字节（高位为1的字节）
+        if (data[i] & 0x80) {
+          const command = data[i] & 0xf0;
+          const channel = data[i] & 0x0f;
+          
+          // 检查是否有足够的字节来解析音符消息
+          if (i + 2 < data.length) {
+            const note = data[i + 1];
+            const velocity = data[i + 2];
+            
+            // 处理音符开消息
+            if (command === 0x90 && velocity > 0) {
+              const pitchName = midiNoteToPitch[note];
+              if (pitchName) {
+                // 更新MIDI音符显示
+                midiNoteDisplay.textContent = `${pitchName} (${note})`;
+                midiProps.lastNote = pitchName;
+                
+                // 添加音符到活动集合
+                midiProps.activeNotes.add(note);
+                
+                // 高亮对应的钢琴键
+                highlightPianoKey(pitchName, true);
+                
+                // 如果启用了音符对比，检查是否正确
+                if (midiProps.noteCompare) {
+                  const currentNoteName = pitchText.textContent.replace('音名：', '');
+                  
+                  if (pitchName === currentNoteName) {
+                    // 正确
+                    showFeedback('正确！', true);
+                    setTimeout(() => {
+                      randomMoveNote();
+                    }, 500);
+                  } else {
+                    // 错误
+                    showFeedback('错了！', false);
+                  }
+                }
+              }
+            }
+            // 处理音符关消息
+            else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
+              // 从活动集合中移除音符
+              midiProps.activeNotes.delete(note);
+              
+              const pitchName = midiNoteToPitch[note];
+              if (pitchName) {
+                // 取消高亮对应的钢琴键
+                highlightPianoKey(pitchName, false);
+              }
+            }
+          }
+        }
+      }
+    }
+    
     // 请求MIDI访问权限
     async function requestMidiAccess() {
       try {
@@ -2623,6 +2859,179 @@
       }
       
       updateMidiStatus();
+    }
+    
+    // 扫描蓝牙MIDI设备
+    async function scanBluetoothDevices() {
+      if (!navigator.bluetooth) {
+        alert('您的浏览器不支持Web Bluetooth API，无法使用蓝牙MIDI功能');
+        return;
+      }
+      
+      try {
+        bluetoothProps.isScanning = true;
+        bluetoothScanBtn.disabled = true;
+        bluetoothScanBtn.textContent = '扫描中...';
+        
+        // 清空设备列表
+        bluetoothDevicesList.innerHTML = '<div class="text-center text-gray-500 py-4">正在扫描蓝牙MIDI设备...</div>';
+        bluetoothProps.devices = [];
+        
+        // 请求蓝牙设备
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [
+            { services: ['03b80e5a-ede8-4b33-a751-6ce34ec4c700'] } // MIDI服务UUID
+          ],
+          optionalServices: ['03b80e5a-ede8-4b33-a751-6ce34ec4c700'] // MIDI服务UUID
+        });
+        
+        // 将设备添加到列表
+        bluetoothProps.devices.push(device);
+        updateBluetoothDeviceList();
+        
+      } catch (error) {
+        console.error('扫描蓝牙设备失败:', error);
+        if (error.name !== 'NotFoundError') {
+          alert('扫描蓝牙设备失败: ' + error.message);
+        }
+      } finally {
+        bluetoothProps.isScanning = false;
+        bluetoothScanBtn.disabled = false;
+        bluetoothScanBtn.textContent = '扫描设备';
+      }
+    }
+    
+    // 更新蓝牙设备列表
+    function updateBluetoothDeviceList() {
+      bluetoothDevicesList.innerHTML = '';
+      
+      if (bluetoothProps.devices.length === 0) {
+        bluetoothDevicesList.innerHTML = '<div class="text-center text-gray-500 py-4">点击"扫描设备"查找蓝牙MIDI设备</div>';
+        return;
+      }
+      
+      bluetoothProps.devices.forEach(device => {
+        const deviceItem = document.createElement('div');
+        deviceItem.className = 'bluetooth-device-item';
+        
+        const deviceInfo = document.createElement('div');
+        deviceInfo.className = 'bluetooth-device-info';
+        
+        const deviceName = document.createElement('div');
+        deviceName.className = 'bluetooth-device-name';
+        deviceName.textContent = device.name || '未知设备';
+        
+        const deviceId = document.createElement('div');
+        deviceId.className = 'bluetooth-device-id';
+        deviceId.textContent = device.id;
+        
+        deviceInfo.appendChild(deviceName);
+        deviceInfo.appendChild(deviceId);
+        
+        const connectButton = document.createElement('button');
+        connectButton.className = 'bluetooth-connect-btn';
+        connectButton.textContent = '连接';
+        connectButton.onclick = () => connectBluetoothDevice(device);
+        
+        deviceItem.appendChild(deviceInfo);
+        deviceItem.appendChild(connectButton);
+        
+        bluetoothDevicesList.appendChild(deviceItem);
+      });
+    }
+    
+    // 连接蓝牙MIDI设备
+    async function connectBluetoothDevice(device) {
+      try {
+        bluetoothProps.isConnecting = true;
+        updateBluetoothStatus();
+        
+        // 断开现有连接
+        if (bluetoothProps.device && bluetoothProps.device.gatt.connected) {
+          await disconnectBluetoothDevice();
+        }
+        
+        // 连接设备
+        bluetoothProps.device = device;
+        bluetoothProps.server = await device.gatt.connect();
+        
+        // 获取MIDI服务
+        const service = await bluetoothProps.server.getPrimaryService('03b80e5a-ede8-4b33-a751-6ce34ec4c700');
+        
+        // 获取MIDI特性
+        bluetoothProps.characteristic = await service.getCharacteristic('7772e5db-3868-4112-a1a9-f2669d106bf3');
+        
+        // 监听MIDI数据
+        bluetoothProps.characteristic.addEventListener('characteristicvaluechanged', handleBluetoothMidiMessage);
+        await bluetoothProps.characteristic.startNotifications();
+        
+        console.log('蓝牙MIDI设备已连接:', device.name);
+        
+        // 监听设备断开连接
+        device.addEventListener('gattserverdisconnected', () => {
+          console.log('蓝牙MIDI设备已断开连接');
+          bluetoothProps.device = null;
+          bluetoothProps.server = null;
+          bluetoothProps.characteristic = null;
+          updateBluetoothStatus();
+        });
+        
+      } catch (error) {
+        console.error('连接蓝牙MIDI设备失败:', error);
+        alert('连接蓝牙MIDI设备失败: ' + error.message);
+        bluetoothProps.device = null;
+        bluetoothProps.server = null;
+        bluetoothProps.characteristic = null;
+      } finally {
+        bluetoothProps.isConnecting = false;
+        updateBluetoothStatus();
+      }
+    }
+    
+    // 断开蓝牙MIDI设备
+    async function disconnectBluetoothDevice() {
+      if (bluetoothProps.device && bluetoothProps.device.gatt.connected) {
+        try {
+          // 停止监听
+          if (bluetoothProps.characteristic) {
+            await bluetoothProps.characteristic.stopNotifications();
+            bluetoothProps.characteristic.removeEventListener('characteristicvaluechanged', handleBluetoothMidiMessage);
+          }
+          
+          // 断开连接
+          bluetoothProps.device.gatt.disconnect();
+          
+          console.log('蓝牙MIDI设备已断开连接');
+        } catch (error) {
+          console.error('断开蓝牙MIDI设备失败:', error);
+        }
+      }
+      
+      bluetoothProps.device = null;
+      bluetoothProps.server = null;
+      bluetoothProps.characteristic = null;
+      updateBluetoothStatus();
+    }
+    
+    // 启用/禁用蓝牙MIDI输入
+    function toggleBluetoothMidiInput(enabled) {
+      bluetoothProps.enabled = enabled;
+      
+      if (enabled) {
+        // 启用蓝牙MIDI输入
+        scanBluetoothDevices();
+      } else {
+        // 禁用蓝牙MIDI输入
+        disconnectBluetoothDevice();
+        
+        // 清除所有MIDI键高亮
+        midiProps.activeNotes.clear();
+        pianoProps.keys.forEach(key => {
+          key.element.classList.remove('midi-active');
+        });
+      }
+      
+      updateBluetoothStatus();
     }
     
     // 更新显示的参数值
@@ -2893,6 +3302,19 @@
     
     midiRefreshBtn.addEventListener('click', () => {
       refreshMidiDevices();
+    });
+    
+    // 蓝牙MIDI设置事件监听
+    enableBluetoothMidiCheckbox.addEventListener('change', () => {
+      toggleBluetoothMidiInput(enableBluetoothMidiCheckbox.checked);
+    });
+    
+    bluetoothScanBtn.addEventListener('click', () => {
+      scanBluetoothDevices();
+    });
+    
+    bluetoothDisconnectBtn.addEventListener('click', () => {
+      disconnectBluetoothDevice();
     });
     
     // 不重复随机数量变化事件
@@ -3573,6 +3995,7 @@
     updateNonRepeatHistoryDisplay();
     updatePianoPosition();
     updateMidiStatus();
+    updateBluetoothStatus();
   </script>
 </body>
 </html>
