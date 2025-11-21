@@ -102,6 +102,18 @@
       .rule-handle {
         cursor: move;
       }
+      .bluetooth-device-item {
+        padding: 0.75rem;
+        border: 1px solid #374151;
+        border-radius: 0.5rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .bluetooth-device-item:hover {
+        background-color: rgba(59, 130, 246, 0.1);
+        border-color: #3B82F6;
+      }
     }
     
     @keyframes beat {
@@ -153,6 +165,32 @@
     </div>
   </div>
 
+  <!-- 蓝牙MIDI设备选择对话框 -->
+  <div id="bluetoothMidiModal" class="modal-backdrop">
+    <div class="bg-dark rounded-xl p-6 max-w-md w-full mx-4 border border-secondary/30 shadow-depth">
+      <div class="text-center mb-4">
+        <h3 class="text-xl font-bold text-primary">选择蓝牙MIDI设备</h3>
+      </div>
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-slate-300">设备列表</span>
+          <button id="refreshBluetoothBtn" class="text-sm bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1 rounded transition-all-300">
+            <i class="fa fa-refresh mr-1"></i> 刷新
+          </button>
+        </div>
+        <div id="bluetoothDeviceList" class="max-h-60 overflow-y-auto">
+          <!-- 蓝牙设备列表将通过JS动态生成 -->
+          <div class="text-center text-slate-400 py-4">未发现蓝牙MIDI设备</div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button id="cancelBluetoothBtn" class="bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 px-4 rounded-lg transition-all-300">
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- 设置菜单对话框 -->
   <div id="settingsModal" class="modal-backdrop">
     <div class="bg-dark rounded-xl p-6 max-w-4xl w-full mx-4 border border-secondary/30 shadow-depth max-h-[90vh] overflow-y-auto">
@@ -175,7 +213,7 @@
                   id="targetScoreInput" 
                   min="10" 
                   max="5000" 
-                  value="100" 
+                  value="500" 
                   class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                 <span class="text-slate-300">分</span>
@@ -185,7 +223,7 @@
                 id="targetScoreSlider" 
                 min="10" 
                 max="5000" 
-                value="100" 
+                value="500" 
                 class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
               >
             </div>
@@ -222,6 +260,79 @@
               <p class="text-xs text-slate-400">
                 调整MIDI输入的延时补偿，正值表示提前触发，负值表示延迟触发
               </p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 音效设置 -->
+        <div>
+          <h4 class="text-lg font-semibold mb-4 text-secondary">音效设置</h4>
+          
+          <div class="space-y-4">
+            <!-- 节拍音效设置 -->
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <h5 class="font-medium text-slate-300 mb-3">节拍音效</h5>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-slate-300">当前音效:</span>
+                  <span id="currentBeatSound" class="text-sm text-primary">默认音效</span>
+                </div>
+                <div class="flex gap-2">
+                  <button id="useDefaultBeatSound" class="bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1 rounded text-sm transition-all-300">
+                    使用默认
+                  </button>
+                  <button id="useLocalBeatSound" class="bg-secondary/20 hover:bg-secondary/30 text-secondary px-3 py-1 rounded text-sm transition-all-300">
+                    使用本地文件
+                  </button>
+                  <button id="downloadBeatSound" class="bg-accent/20 hover:bg-accent/30 text-accent px-3 py-1 rounded text-sm transition-all-300">
+                    下载默认MP3
+                  </button>
+                </div>
+                <div id="customBeatSoundSection" class="hidden">
+                  <input type="file" id="beatSoundFile" accept=".mp3,.wav" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30">
+                  <div class="mt-2 flex gap-2">
+                    <button id="testBeatSound" class="bg-success/20 hover:bg-success/30 text-success px-3 py-1 rounded text-sm transition-all-300">
+                      测试音效
+                    </button>
+                    <button id="clearBeatSound" class="bg-danger/20 hover:bg-danger/30 text-danger px-3 py-1 rounded text-sm transition-all-300">
+                      清除自定义
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 点击音效设置 -->
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <h5 class="font-medium text-slate-300 mb-3">点击音效</h5>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm text-slate-300">当前音效:</span>
+                  <span id="currentClickSound" class="text-sm text-primary">默认音效</span>
+                </div>
+                <div class="flex gap-2">
+                  <button id="useDefaultClickSound" class="bg-primary/20 hover:bg-primary/30 text-primary px-3 py-1 rounded text-sm transition-all-300">
+                    使用默认
+                  </button>
+                  <button id="useLocalClickSound" class="bg-secondary/20 hover:bg-secondary/30 text-secondary px-3 py-1 rounded text-sm transition-all-300">
+                    使用本地文件
+                  </button>
+                  <button id="downloadClickSound" class="bg-accent/20 hover:bg-accent/30 text-accent px-3 py-1 rounded text-sm transition-all-300">
+                    下载默认MP3
+                  </button>
+                </div>
+                <div id="customClickSoundSection" class="hidden">
+                  <input type="file" id="clickSoundFile" accept=".mp3,.wav" class="w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30">
+                  <div class="mt-2 flex gap-2">
+                    <button id="testClickSound" class="bg-success/20 hover:bg-success/30 text-success px-3 py-1 rounded text-sm transition-all-300">
+                      测试音效
+                    </button>
+                    <button id="clearClickSound" class="bg-danger/20 hover:bg-danger/30 text-danger px-3 py-1 rounded text-sm transition-all-300">
+                      清除自定义
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -272,6 +383,12 @@
           <span id="midiBtnText">连接MIDI设备</span>
         </button>
         
+        <!-- 蓝牙MIDI连接按钮 -->
+        <button id="connectBluetoothMidiBtn" class="text-secondary hover:text-secondary/80 text-sm font-medium transition-all-300 flex items-center gap-1">
+          <i class="fa fa-bluetooth"></i>
+          <span>蓝牙MIDI</span>
+        </button>
+        
         <!-- 当前用户显示 -->
         <div id="currentUserDisplay" class="hidden items-center gap-2 px-3 py-1 bg-primary/20 rounded-full text-sm">
           <i class="fa fa-user text-primary"></i>
@@ -281,7 +398,7 @@
         <!-- 目标分数显示 -->
         <div class="hidden items-center gap-2 px-3 py-1 bg-accent/20 rounded-full text-sm" id="targetScoreDisplay">
           <i class="fa fa-bullseye text-accent"></i>
-          <span>目标: <span id="targetScoreValue">100</span>分</span>
+          <span>目标: <span id="targetScoreValue">500</span>分</span>
         </div>
         
         <!-- 顶部开始/停止按钮 -->
@@ -337,7 +454,7 @@
       <div id="currentRulesDisplay" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
         <!-- 规则将通过JS动态生成 -->
       </div>
-      <p class="mt-3 text-sm text-slate-400">达到 <span id="ruleTargetScore">100</span> 分即可获胜！</p>
+      <p class="mt-3 text-sm text-slate-400">达到 <span id="ruleTargetScore">500</span> 分即可获胜！</p>
     </div>
     
     <!-- 节拍视觉指示器与鼠标点击区 -->
@@ -520,6 +637,10 @@
           <i id="midiStatusIcon" class="fa fa-plug text-slate-500"></i>
           <span id="midiStatusText" class="text-slate-400">未检测MIDI设备</span>
         </div>
+        <div id="bluetoothStatus" class="hidden items-center gap-2">
+          <i class="fa fa-bluetooth text-secondary"></i>
+          <span class="text-sm text-secondary">蓝牙MIDI已连接</span>
+        </div>
       </div>
     </div>
   </main>
@@ -534,7 +655,7 @@
         <h3 class="text-xl font-bold text-secondary">恭喜胜利！</h3>
       </div>
       <div class="text-slate-300 text-center mb-4">
-        <p class="mb-2">您已达到 <span id="modalTargetScore">100</span> 分目标，完成练习！</p>
+        <p class="mb-2">您已达到 <span id="modalTargetScore">500</span> 分目标，完成练习！</p>
         <p class="text-3xl font-bold text-primary mb-1">最终得分: <span id="finalScore">0</span></p>
         <p class="text-sm mb-1">最佳单次得分: <span id="finalBestScore">0</span></p>
         <p class="text-sm mb-1">按键次数: <span id="totalKeyPresses">0</span>次</p>
@@ -564,22 +685,33 @@
     let beatsPerLoop = 4;
     let timelineScale = 2.5; // 初始缩放50%
     let zoomLevel = 50; // 缩放百分比
-    let targetScore = 100; // 目标分数（可自定义）
+    let targetScore = 500; // 目标分数（可自定义）
     let midiDelay = 0; // MIDI延时调整（ms）
     let midiAccess = null;
     let isMidiConnected = false;
+    let isBluetoothMidiConnected = false;
+    let bluetoothDevice = null;
     let displayUnit = 'ms';
     
+    // 音效设置
+    let soundSettings = {
+      beatSound: 'default', // 'default', 'local', 'custom'
+      clickSound: 'default', // 'default', 'local', 'custom'
+      beatSoundBuffer: null,
+      clickSoundBuffer: null,
+      localBeatSoundLoaded: false,
+      localClickSoundLoaded: false
+    };
+    
     // 分数规则设置（7个预留范围）
-    // 根据需求调整默认规则：0-100ms和101-200ms都是加5分
     let scoreRules = [
       { min: 0, max: 100, score: 5 },
       { min: 101, max: 200, score: 5 },
       { min: 201, max: 300, score: -5 },
-      { min: 301, max: 400, score: -10 },
-      { min: 401, max: 500, score: -15 },
-      { min: 501, max: 600, score: -20 },
-      { min: 601, max: 1000, score: -25 }
+      { min: 301, max: 400, score: -5 },
+      { min: 401, max: 500, score: -5 },
+      { min: 501, max: 600, score: -5 },
+      { min: 601, max: 1000, score: -5 }
     ];
     
     let intervalId = null;
@@ -601,6 +733,15 @@
       '瓮迦勒',
       '刘亦康',
       '霍志蒙',
+      '张羽',
+      '王一帆',
+      '瓮嘉颖',
+      '王依晨',
+      '杨晨曦',
+      '孟恩惠',
+      '史若清',
+      '周盼望',
+      '王一诺',
       '自定义'
     ];
     
@@ -619,6 +760,14 @@
       currentUserDisplay: document.getElementById('currentUserDisplay'),
       userNameText: document.getElementById('userNameText'),
       
+      // 蓝牙MIDI相关
+      bluetoothMidiModal: document.getElementById('bluetoothMidiModal'),
+      connectBluetoothMidiBtn: document.getElementById('connectBluetoothMidiBtn'),
+      bluetoothDeviceList: document.getElementById('bluetoothDeviceList'),
+      refreshBluetoothBtn: document.getElementById('refreshBluetoothBtn'),
+      cancelBluetoothBtn: document.getElementById('cancelBluetoothBtn'),
+      bluetoothStatus: document.getElementById('bluetoothStatus'),
+      
       // 设置菜单相关
       settingsModal: document.getElementById('settingsModal'),
       settingsBtn: document.getElementById('settingsBtn'),
@@ -635,6 +784,24 @@
       ruleTargetScore: document.getElementById('ruleTargetScore'),
       modalTargetScore: document.getElementById('modalTargetScore'),
       currentRulesDisplay: document.getElementById('currentRulesDisplay'),
+      
+      // 音效设置相关
+      currentBeatSound: document.getElementById('currentBeatSound'),
+      currentClickSound: document.getElementById('currentClickSound'),
+      useDefaultBeatSound: document.getElementById('useDefaultBeatSound'),
+      useLocalBeatSound: document.getElementById('useLocalBeatSound'),
+      downloadBeatSound: document.getElementById('downloadBeatSound'),
+      customBeatSoundSection: document.getElementById('customBeatSoundSection'),
+      beatSoundFile: document.getElementById('beatSoundFile'),
+      testBeatSound: document.getElementById('testBeatSound'),
+      clearBeatSound: document.getElementById('clearBeatSound'),
+      useDefaultClickSound: document.getElementById('useDefaultClickSound'),
+      useLocalClickSound: document.getElementById('useLocalClickSound'),
+      downloadClickSound: document.getElementById('downloadClickSound'),
+      customClickSoundSection: document.getElementById('customClickSoundSection'),
+      clickSoundFile: document.getElementById('clickSoundFile'),
+      testClickSound: document.getElementById('testClickSound'),
+      clearClickSound: document.getElementById('clearClickSound'),
       
       // 控制按钮
       startStopBtn: document.getElementById('startStopBtn'),
@@ -685,18 +852,13 @@
       beatsPerLoopSlider: document.getElementById('beatsPerLoopSlider'),
     };
     
-    // 音色配置
-    const soundPresets = {
-      click: { type: 'sine', frequency: 880, attack: 0.01, decay: 0.1, gain: 0.2 },
-      preparation: { type: 'sine', frequency: 550, attack: 0.01, decay: 0.1, gain: 0.2 },
-      'snare1': { type: 'square', frequency: 200, attack: 0.005, decay: 0.2, gain: 0.5, noise: true }
-    };
-    
     // 初始化音频上下文
     function initAudioContext() {
       if (!audioContext) {
         try {
           audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          // 尝试加载本地音频文件
+          loadLocalAudioFiles();
         } catch (e) {
           console.error('音频初始化失败:', e);
           alert('无法初始化音频，请检查浏览器设置');
@@ -705,48 +867,248 @@
       return audioContext;
     }
     
+    // 尝试加载本地音频文件
+    async function loadLocalAudioFiles() {
+      try {
+        // 尝试加载节拍音效
+        const beatResponse = await fetch('./beat.mp3');
+        if (beatResponse.ok) {
+          const arrayBuffer = await beatResponse.arrayBuffer();
+          soundSettings.beatSoundBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          soundSettings.beatSound = 'local';
+          soundSettings.localBeatSoundLoaded = true;
+          elements.currentBeatSound.textContent = '本地文件 (beat.mp3)';
+          console.log('成功加载本地节拍音效');
+        }
+      } catch (e) {
+        console.log('无法加载本地节拍音效，使用默认音效');
+      }
+      
+      try {
+        // 尝试加载点击音效
+        const clickResponse = await fetch('./click.mp3');
+        if (clickResponse.ok) {
+          const arrayBuffer = await clickResponse.arrayBuffer();
+          soundSettings.clickSoundBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          soundSettings.clickSound = 'local';
+          soundSettings.localClickSoundLoaded = true;
+          elements.currentClickSound.textContent = '本地文件 (click.mp3)';
+          console.log('成功加载本地点击音效');
+        }
+      } catch (e) {
+        console.log('无法加载本地点击音效，使用默认音效');
+      }
+    }
+    
     // 播放声音
-    function playSound(presetKey) {
+    function playSound(type) {
       const ctx = initAudioContext();
       if (!ctx) return;
       
-      const now = ctx.currentTime;
-      const preset = soundPresets[presetKey];
-      if (!preset) return;
+      // 检查是否使用本地或自定义音效
+      if (type === 'beat' && soundSettings.beatSound !== 'default') {
+        if (soundSettings.beatSoundBuffer) {
+          const source = ctx.createBufferSource();
+          source.buffer = soundSettings.beatSoundBuffer;
+          source.connect(ctx.destination);
+          source.start();
+          return;
+        }
+      } else if (type === 'click' && soundSettings.clickSound !== 'default') {
+        if (soundSettings.clickSoundBuffer) {
+          const source = ctx.createBufferSource();
+          source.buffer = soundSettings.clickSoundBuffer;
+          source.connect(ctx.destination);
+          source.start();
+          return;
+        }
+      }
       
-      let source;
-      if (preset.noise) {
-        // 创建噪声源
+      // 使用默认音效
+      const now = ctx.currentTime;
+      let source, gainNode;
+      
+      if (type === 'beat') {
+        // 节拍音效
+        source = ctx.createOscillator();
+        source.type = 'sine';
+        source.frequency.setValueAtTime(880, now);
+        
+        gainNode = ctx.createGain();
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.2, now + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.11);
+      } else if (type === 'preparation') {
+        // 预备节拍音效
+        source = ctx.createOscillator();
+        source.type = 'sine';
+        source.frequency.setValueAtTime(550, now);
+        
+        gainNode = ctx.createGain();
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.2, now + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.11);
+      } else if (type === 'click') {
+        // 点击音效
         const bufferSize = 4096;
         const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
         source = ctx.createBufferSource();
         source.buffer = buffer;
-      } else {
-        source = ctx.createOscillator();
-        source.type = preset.type;
-        source.frequency.setValueAtTime(preset.frequency, now);
+        
+        gainNode = ctx.createGain();
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.5, now + 0.005);
+        gainNode.gain.linearRampToValueAtTime(0, now + 0.205);
       }
       
-      const gainNode = ctx.createGain();
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(preset.gain, now + preset.attack);
-      gainNode.gain.linearRampToValueAtTime(0, now + preset.attack + preset.decay);
-      
-      source.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      source.start(now);
-      source.stop(now + preset.attack + preset.decay + 0.1);
+      if (source && gainNode) {
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(now);
+        source.stop(now + 0.3);
+      }
     }
     
     // 播放不同阶段的声音
-    function playMetronomeSound() { playSound('click'); }
+    function playMetronomeSound() { playSound('beat'); }
     function playPreparationSound() { playSound('preparation'); }
-    function playKeySound() { playSound('snare1'); }
+    function playKeySound() { playSound('click'); }
     function playSuccessSound() { 
-      playSound('click');
-      setTimeout(() => playSound('click'), 200);
+      playSound('beat');
+      setTimeout(() => playSound('beat'), 200);
+    }
+    
+    // 测试音效
+    function testSound(type) {
+      if (type === 'beat') {
+        playMetronomeSound();
+      } else if (type === 'click') {
+        playKeySound();
+      }
+    }
+    
+    // 下载默认音效
+    function downloadDefaultSound(type) {
+      // 创建默认音效的音频数据
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const duration = type === 'beat' ? 0.12 : 0.21;
+      const sampleRate = 44100;
+      const frameCount = sampleRate * duration;
+      
+      const audioBuffer = ctx.createBuffer(1, frameCount, sampleRate);
+      const channelData = audioBuffer.getChannelData(0);
+      
+      // 生成音效
+      if (type === 'beat') {
+        // 生成节拍音效（880Hz正弦波）
+        for (let i = 0; i < frameCount; i++) {
+          const t = i / sampleRate;
+          const envelope = Math.exp(-t * 20); // 快速衰减
+          channelData[i] = Math.sin(2 * Math.PI * 880 * t) * envelope * 0.5;
+        }
+      } else if (type === 'click') {
+        // 生成点击音效（噪声）
+        for (let i = 0; i < frameCount; i++) {
+          const t = i / sampleRate;
+          const envelope = Math.exp(-t * 15); // 衰减
+          channelData[i] = (Math.random() * 2 - 1) * envelope * 0.5;
+        }
+      }
+      
+      // 编码为WAV文件
+      const wavBuffer = encodeWAV(channelData, sampleRate);
+      const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      
+      // 创建下载链接
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = type === 'beat' ? 'beat_sound.wav' : 'click_sound.wav';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    
+    // 编码WAV文件
+    function encodeWAV(samples, sampleRate) {
+      const buffer = new ArrayBuffer(44 + samples.length * 2);
+      const view = new DataView(buffer);
+      
+      // WAV文件头
+      const writeString = (offset, string) => {
+        for (let i = 0; i < string.length; i++) {
+          view.setUint8(offset + i, string.charCodeAt(i));
+        }
+      };
+      
+      writeString(0, 'RIFF');
+      view.setUint32(4, 36 + samples.length * 2, true);
+      writeString(8, 'WAVE');
+      writeString(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(36, 'data');
+      view.setUint32(40, samples.length * 2, true);
+      
+      // 写入音频数据
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++, offset += 2) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      
+      return buffer;
+    }
+    
+    // 处理自定义音效文件
+    function handleCustomSoundFile(file, type) {
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const ctx = initAudioContext();
+          const arrayBuffer = e.target.result;
+          const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+          
+          if (type === 'beat') {
+            soundSettings.beatSoundBuffer = audioBuffer;
+            soundSettings.beatSound = 'custom';
+            elements.currentBeatSound.textContent = '自定义文件';
+          } else if (type === 'click') {
+            soundSettings.clickSoundBuffer = audioBuffer;
+            soundSettings.clickSound = 'custom';
+            elements.currentClickSound.textContent = '自定义文件';
+          }
+        } catch (error) {
+          console.error('音频文件解码失败:', error);
+          alert('音频文件解码失败，请检查文件格式');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    
+    // 清除自定义音效
+    function clearCustomSound(type) {
+      if (type === 'beat') {
+        soundSettings.beatSound = soundSettings.localBeatSoundLoaded ? 'local' : 'default';
+        soundSettings.beatSoundBuffer = null;
+        elements.currentBeatSound.textContent = soundSettings.localBeatSoundLoaded ? '本地文件 (beat.mp3)' : '默认音效';
+        elements.customBeatSoundSection.classList.add('hidden');
+        elements.beatSoundFile.value = '';
+      } else if (type === 'click') {
+        soundSettings.clickSound = soundSettings.localClickSoundLoaded ? 'local' : 'default';
+        soundSettings.clickSoundBuffer = null;
+        elements.currentClickSound.textContent = soundSettings.localClickSoundLoaded ? '本地文件 (click.mp3)' : '默认音效';
+        elements.customClickSoundSection.classList.add('hidden');
+        elements.clickSoundFile.value = '';
+      }
     }
     
     // 格式化时间戳（用于记录显示）
@@ -1430,7 +1792,7 @@
     }
     
     // 处理按键（记录并计算分数）- 鼠标按下时记录
-    function handleKeyPress(isMidi = false) {
+    function handleKeyPress(isMidi = false, isBluetooth = false) {
       if (!isPlaying) return;
       
       // 仅在预备阶段最后一个节拍（1）或正式阶段才记录按键
@@ -1477,11 +1839,11 @@
           updateTimeline();
           updateHistoryTable();
         } else {
-          pendingKeys.push({ time: keyTime, isMidi });
+          pendingKeys.push({ time: keyTime, isMidi, isBluetooth });
         }
       } else {
         // 预备1之后，正式1之前的按键
-        pendingKeys.push({ time: keyTime, isMidi });
+        pendingKeys.push({ time: keyTime, isMidi, isBluetooth });
       }
     }
     
@@ -1575,13 +1937,98 @@
       isInPreparation = false;
     }
     
+    // 蓝牙MIDI处理
+    async function connectBluetoothMidi() {
+      try {
+        if (!navigator.bluetooth) {
+          alert('您的浏览器不支持蓝牙功能，请使用Chrome、Edge或Opera浏览器');
+          return;
+        }
+        
+        elements.bluetoothDeviceList.innerHTML = '<div class="text-center text-slate-400 py-4">正在搜索设备...</div>';
+        elements.bluetoothMidiModal.classList.add('modal-visible');
+        
+        // 请求蓝牙设备
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: ['midi'] }],
+          optionalServices: ['battery_service']
+        });
+        
+        // 连接设备
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('midi');
+        const characteristic = await service.getCharacteristic('midi_data');
+        
+        // 监听MIDI消息
+        characteristic.addEventListener('characteristicvaluechanged', handleBluetoothMidiMessage);
+        await characteristic.startNotifications();
+        
+        // 保存设备引用
+        bluetoothDevice = device;
+        isBluetoothMidiConnected = true;
+        
+        // 更新UI
+        elements.bluetoothStatus.classList.remove('hidden');
+        elements.connectBluetoothMidiBtn.innerHTML = '<i class="fa fa-bluetooth-b"></i><span>断开蓝牙</span>';
+        elements.bluetoothMidiModal.classList.remove('modal-visible');
+        
+        // 监听设备断开连接
+        device.addEventListener('gattserverdisconnected', handleBluetoothDisconnect);
+        
+        console.log('蓝牙MIDI设备已连接:', device.name);
+      } catch (error) {
+        console.error('蓝牙MIDI连接失败:', error);
+        if (error.name !== 'NotFoundError') {
+          alert('蓝牙MIDI连接失败: ' + error.message);
+        }
+        elements.bluetoothDeviceList.innerHTML = '<div class="text-center text-slate-400 py-4">未发现蓝牙MIDI设备</div>';
+      }
+    }
+    
+    // 处理蓝牙MIDI消息
+    function handleBluetoothMidiMessage(event) {
+      const value = event.target.value;
+      const data = new Uint8Array(value.buffer);
+      
+      // 检查是否为音符按下消息 (0x90)
+      if (data.length >= 3 && (data[0] & 0xF0) === 0x90 && data[2] > 0) {
+        handleKeyPress(true, true);
+      }
+    }
+    
+    // 处理蓝牙设备断开连接
+    function handleBluetoothDisconnect() {
+      isBluetoothMidiConnected = false;
+      bluetoothDevice = null;
+      
+      // 更新UI
+      elements.bluetoothStatus.classList.add('hidden');
+      elements.connectBluetoothMidiBtn.innerHTML = '<i class="fa fa-bluetooth"></i><span>蓝牙MIDI</span>';
+      
+      console.log('蓝牙MIDI设备已断开连接');
+    }
+    
+    // 断开蓝牙MIDI连接
+    function disconnectBluetoothMidi() {
+      if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+        bluetoothDevice.gatt.disconnect();
+      }
+      handleBluetoothDisconnect();
+    }
+    
+    // 刷新蓝牙设备列表
+    async function refreshBluetoothDevices() {
+      // 这里可以扩展为显示已配对设备列表
+      elements.bluetoothDeviceList.innerHTML = '<div class="text-center text-slate-400 py-4">点击"连接"按钮搜索设备</div>';
+    }
+    
     // MIDI处理
     function handleMidiInput(message) {
       const [status, note, velocity] = message.data;
       // 当MIDI音符按下时触发（velocity > 0）
       if ((status & 0xF0) === 0x90 && velocity > 0) {
         // 标记为MIDI输入，以便应用延时调整
-        handleKeyPress(true);
+        handleKeyPress(true, false);
       }
     }
     
@@ -1609,6 +2056,12 @@
         }
         
         updateMidiStatus(hasInputs);
+        
+        // 如果有线MIDI连接成功，禁用蓝牙MIDI按钮
+        if (hasInputs) {
+          elements.connectBluetoothMidiBtn.disabled = true;
+          elements.connectBluetoothMidiBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
       } catch (err) {
         console.error('MIDI连接错误:', err);
         elements.midiStatusIcon.className = 'fa fa-exclamation-triangle text-danger';
@@ -1627,6 +2080,10 @@
       if (event.port.state === 'connected' && event.port.type === 'input') {
         event.port.onmidimessage = handleMidiInput;
         updateMidiStatus(true);
+        
+        // 有线MIDI连接成功，禁用蓝牙MIDI按钮
+        elements.connectBluetoothMidiBtn.disabled = true;
+        elements.connectBluetoothMidiBtn.classList.add('opacity-50', 'cursor-not-allowed');
       } 
       // 如果设备已断开连接，检查是否还有其他设备
       else if (event.port.state === 'disconnected' && event.port.type === 'input') {
@@ -1639,6 +2096,12 @@
           }
         }
         updateMidiStatus(hasConnectedInputs);
+        
+        // 如果没有有线MIDI设备连接，启用蓝牙MIDI按钮
+        if (!hasConnectedInputs) {
+          elements.connectBluetoothMidiBtn.disabled = false;
+          elements.connectBluetoothMidiBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
       }
     }
     
@@ -1674,6 +2137,20 @@
       // 用户选择事件
       elements.confirmUserBtn.addEventListener('click', confirmUserSelection);
       
+      // 蓝牙MIDI事件
+      elements.connectBluetoothMidiBtn.addEventListener('click', () => {
+        if (isBluetoothMidiConnected) {
+          disconnectBluetoothMidi();
+        } else {
+          connectBluetoothMidi();
+        }
+      });
+      
+      elements.refreshBluetoothBtn.addEventListener('click', refreshBluetoothDevices);
+      elements.cancelBluetoothBtn.addEventListener('click', () => {
+        elements.bluetoothMidiModal.classList.remove('modal-visible');
+      });
+      
       // 设置菜单事件
       elements.settingsBtn.addEventListener('click', () => {
         elements.settingsModal.classList.add('modal-visible');
@@ -1691,6 +2168,63 @@
       });
       
       elements.resetRulesBtn.addEventListener('click', resetToDefaultRules);
+      
+      // 音效设置事件
+      elements.useDefaultBeatSound.addEventListener('click', () => {
+        soundSettings.beatSound = 'default';
+        elements.currentBeatSound.textContent = '默认音效';
+        elements.customBeatSoundSection.classList.add('hidden');
+      });
+      
+      elements.useLocalBeatSound.addEventListener('click', () => {
+        elements.customBeatSoundSection.classList.remove('hidden');
+      });
+      
+      elements.downloadBeatSound.addEventListener('click', () => {
+        downloadDefaultSound('beat');
+      });
+      
+      elements.testBeatSound.addEventListener('click', () => {
+        testSound('beat');
+      });
+      
+      elements.clearBeatSound.addEventListener('click', () => {
+        clearCustomSound('beat');
+      });
+      
+      elements.beatSoundFile.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handleCustomSoundFile(e.target.files[0], 'beat');
+        }
+      });
+      
+      elements.useDefaultClickSound.addEventListener('click', () => {
+        soundSettings.clickSound = 'default';
+        elements.currentClickSound.textContent = '默认音效';
+        elements.customClickSoundSection.classList.add('hidden');
+      });
+      
+      elements.useLocalClickSound.addEventListener('click', () => {
+        elements.customClickSoundSection.classList.remove('hidden');
+      });
+      
+      elements.downloadClickSound.addEventListener('click', () => {
+        downloadDefaultSound('click');
+      });
+      
+      elements.testClickSound.addEventListener('click', () => {
+        testSound('click');
+      });
+      
+      elements.clearClickSound.addEventListener('click', () => {
+        clearCustomSound('click');
+      });
+      
+      elements.clickSoundFile.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handleCustomSoundFile(e.target.files[0], 'click');
+        }
+      });
       
       // 目标分数输入框和滑块同步
       elements.targetScoreInput.addEventListener('input', e => {
