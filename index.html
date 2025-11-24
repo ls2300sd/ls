@@ -708,10 +708,10 @@
       { min: 0, max: 100, score: 5 },
       { min: 101, max: 200, score: 5 },
       { min: 201, max: 300, score: -5 },
-      { min: 301, max: 400, score: -5 },
-      { min: 401, max: 500, score: -5 },
-      { min: 501, max: 600, score: -5 },
-      { min: 601, max: 1000, score: -5 }
+      { min: 301, max: 400, score: -10 },
+      { min: 401, max: 500, score: -15 },
+      { min: 501, max: 600, score: -20 },
+      { min: 601, max: 1000, score: -25 }
     ];
     
     let intervalId = null;
@@ -1948,16 +1948,18 @@
         elements.bluetoothDeviceList.innerHTML = '<div class="text-center text-slate-400 py-4">正在搜索设备...</div>';
         elements.bluetoothMidiModal.classList.add('modal-visible');
         
-        // 请求蓝牙设备
+        // 请求蓝牙设备 - 使用正确的UUID
         const device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: ['midi'] }],
+          filters: [{
+            services: ['03b80e5a-ede8-4b33-a751-6ce34ec4c700'] // MIDI服务的标准UUID
+          }],
           optionalServices: ['battery_service']
         });
         
         // 连接设备
         const server = await device.gatt.connect();
-        const service = await server.getPrimaryService('midi');
-        const characteristic = await service.getCharacteristic('midi_data');
+        const service = await server.getPrimaryService('03b80e5a-ede8-4b33-a751-6ce34ec4c700');
+        const characteristic = await service.getCharacteristic('7772e5db-3868-4112-a1a9-f2669d106bf3'); // MIDI数据特征
         
         // 监听MIDI消息
         characteristic.addEventListener('characteristicvaluechanged', handleBluetoothMidiMessage);
