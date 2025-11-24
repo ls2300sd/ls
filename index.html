@@ -264,6 +264,40 @@
           </div>
         </div>
         
+        <!-- 蓝牙MIDI优化设置 -->
+        <div>
+          <h4 class="text-lg font-semibold mb-4 text-secondary">蓝牙MIDI优化</h4>
+          <div class="space-y-3">
+            <div class="flex items-center gap-4">
+              <label for="bluetoothBufferSize" class="text-slate-300 w-48">蓝牙数据包缓冲大小:</label>
+              <input 
+                type="number" 
+                id="bluetoothBufferSize" 
+                min="1" 
+                max="10" 
+                value="3" 
+                class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+              <span class="text-slate-300">个数据包</span>
+            </div>
+            <div class="flex items-center gap-4">
+              <label for="bluetoothDebounceTime" class="text-slate-300 w-48">蓝牙去抖动时间:</label>
+              <input 
+                type="number" 
+                id="bluetoothDebounceTime" 
+                min="0" 
+                max="100" 
+                value="20" 
+                class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+              <span class="text-slate-300">ms</span>
+            </div>
+            <p class="text-xs text-slate-400">
+              调整蓝牙MIDI数据处理参数，解决数据拥堵问题
+            </p>
+          </div>
+        </div>
+        
         <!-- 音效设置 -->
         <div>
           <h4 class="text-lg font-semibold mb-4 text-secondary">音效设置</h4>
@@ -693,6 +727,13 @@
     let bluetoothDevice = null;
     let displayUnit = 'ms';
     
+    // 蓝牙MIDI优化参数
+    let bluetoothBufferSize = 3; // 数据包缓冲大小
+    let bluetoothDebounceTime = 20; // 去抖动时间(ms)
+    let bluetoothMessageBuffer = []; // 蓝牙消息缓冲区
+    let lastBluetoothMessageTime = 0; // 最后一条蓝牙消息时间
+    let bluetoothProcessing = false; // 是否正在处理蓝牙消息
+    
     // 音效设置
     let soundSettings = {
       beatSound: 'default', // 'default', 'local', 'custom'
@@ -775,6 +816,8 @@
       targetScoreSlider: document.getElementById('targetScoreSlider'),
       midiDelayInput: document.getElementById('midiDelayInput'),
       midiDelaySlider: document.getElementById('midiDelaySlider'),
+      bluetoothBufferSize: document.getElementById('bluetoothBufferSize'),
+      bluetoothDebounceTime: document.getElementById('bluetoothDebounceTime'),
       saveSettingsBtn: document.getElementById('saveSettingsBtn'),
       cancelSettingsBtn: document.getElementById('cancelSettingsBtn'),
       resetRulesBtn: document.getElementById('resetRulesBtn'),
@@ -1451,6 +1494,17 @@
         midiDelay = newMidiDelay;
       }
       
+      // 保存蓝牙MIDI优化设置
+      const newBufferSize = parseInt(elements.bluetoothBufferSize.value);
+      if (newBufferSize >= 1 && newBufferSize <= 10) {
+        bluetoothBufferSize = newBufferSize;
+      }
+      
+      const newDebounceTime = parseInt(elements.bluetoothDebounceTime.value);
+      if (newDebounceTime >= 0 && newDebounceTime <= 100) {
+        bluetoothDebounceTime = newDebounceTime;
+      }
+      
       // 更新滑块值
       elements.targetScoreSlider.value = targetScore;
       elements.midiDelaySlider.value = midiDelay;
@@ -1987,14 +2041,65 @@
       }
     }
     
-    // 处理蓝牙MIDI消息
+    // 处理蓝牙MIDI消息 - 优化版本
     function handleBluetoothMidiMessage(event) {
       const value = event.target.value;
       const data = new Uint8Array(value.buffer);
+      const currentTime = Date.now();
       
-      // 检查是否为音符按下消息 (0x90)
-      if (data.length >= 3 && (data[0] & 0xF0) === 0x90 && data[2] > 0) {
-        handleKeyPress(true, true);
+      // 添加去抖动处理
+      if (currentTime - lastBluetoothMessageTime < bluetoothDebounceTime) {
+        return; // 忽略过于频繁的消息
+      }
+      
+      lastBluetoothMessageTime = currentTime;
+      
+      // 将消息添加到缓冲区
+      bluetoothMessageBuffer.push({
+        data: data,
+        timestamp: currentTime
+      });
+      
+      // 限制缓冲区大小
+      if (bluetoothMessageBuffer.length > bluetoothBufferSize) {
+        bluetoothMessageBuffer.shift(); // 移除最旧的消息
+      }
+      
+      // 如果不是正在处理消息，则开始处理
+      if (!bluetoothProcessing) {
+        processBluetoothBuffer();
+      }
+    }
+    
+    // 处理蓝牙消息缓冲区
+    async function processBluetoothBuffer() {
+      if (bluetoothProcessing || bluetoothMessageBuffer.length === 0) return;
+      
+      bluetoothProcessing = true;
+      
+      try {
+        // 处理缓冲区中的所有消息
+        while (bluetoothMessageBuffer.length > 0) {
+          const message = bluetoothMessageBuffer.shift();
+          const data = message.data;
+          
+          // 检查是否为音符按下消息 (0x90)
+          if (data.length >= 3 && (data[0] & 0xF0) === 0x90 && data[2] > 0) {
+            handleKeyPress(true, true);
+            
+            // 添加小延迟以处理蓝牙数据拥堵
+            await new Promise(resolve => setTimeout(resolve, 5));
+          }
+        }
+      } catch (error) {
+        console.error('处理蓝牙MIDI消息时出错:', error);
+      } finally {
+        bluetoothProcessing = false;
+        
+        // 如果缓冲区中还有消息，继续处理
+        if (bluetoothMessageBuffer.length > 0) {
+          setTimeout(processBluetoothBuffer, 10);
+        }
       }
     }
     
@@ -2002,6 +2107,8 @@
     function handleBluetoothDisconnect() {
       isBluetoothMidiConnected = false;
       bluetoothDevice = null;
+      bluetoothMessageBuffer = []; // 清空缓冲区
+      bluetoothProcessing = false;
       
       // 更新UI
       elements.bluetoothStatus.classList.add('hidden');
@@ -2161,6 +2268,8 @@
         elements.targetScoreSlider.value = targetScore;
         elements.midiDelayInput.value = midiDelay;
         elements.midiDelaySlider.value = midiDelay;
+        elements.bluetoothBufferSize.value = bluetoothBufferSize;
+        elements.bluetoothDebounceTime.value = bluetoothDebounceTime;
         initScoreRulesUI();
       });
       
@@ -2331,6 +2440,10 @@
       // 设置默认MIDI延时
       elements.midiDelayInput.value = midiDelay;
       elements.midiDelaySlider.value = midiDelay;
+      
+      // 设置默认蓝牙优化参数
+      elements.bluetoothBufferSize.value = bluetoothBufferSize;
+      elements.bluetoothDebounceTime.value = bluetoothDebounceTime;
       
       elements.zoomLevelText.textContent = `${zoomLevel}%`;
       updateMidiStatus(false);
