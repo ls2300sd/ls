@@ -1277,6 +1277,13 @@
             <span id="midi-device-status" class="text-sm font-mono midi-disconnected">未连接</span>
           </div>
         </div>
+
+<div class="slider-wrapper">
+  <div class="slider-label">
+    <span>连接模式</span>
+    <span id="midi-connection-mode" class="text-sm font-mono">自动优先有线</span>
+  </div>
+</div>
         
         <!-- MIDI音符显示 -->
         <div class="slider-wrapper">
@@ -1743,14 +1750,16 @@
     
     // MIDI设备属性对象
     let midiProps = {
-      enabled: false,          // 是否启用MIDI输入
-      access: null,            // MIDI访问对象
-      inputs: [],              // MIDI输入设备列表
-      selectedInput: null,     // 选中的MIDI输入设备
-      noteCompare: true,       // MIDI音符对比功能
-      lastNote: null,          // 最后一个MIDI音符
-      activeNotes: new Set()   // 当前活动的MIDI音符
-    };
+  enabled: false,          // 是否启用MIDI输入
+  access: null,            // MIDI访问对象
+  inputs: [],              // MIDI输入设备列表
+  selectedInput: null,     // 选中的MIDI输入设备
+  noteCompare: true,       // MIDI音符对比功能
+  lastNote: null,          // 最后一个MIDI音符
+  activeNotes: new Set(),  // 当前活动的MIDI音符
+  // [新增] 是否优先使用有线设备（默认true）
+  preferWired: true
+};
     
     // ======================================================================
     // 3151-3200: 音名映射关系定义
@@ -2040,9 +2049,9 @@ const bassPitchToStaffPosition = {
     
     /**
      * 更新谱号类型
-     * @param {string} type - 谱号类型 ('treble' 或 'bass')
-     */
-    function updateClefType(type) {
+ * @param {string} type - 谱号类型 ('treble' 或 'bass')
+ */
+function updateClefType(type) {
   clefProps.type = type; // 设置谱号类型
   
   // 更新谱号类型选择器UI
@@ -2062,9 +2071,10 @@ const bassPitchToStaffPosition = {
     clefProps.width = trebleClefImage.width; // 设置谱号宽度
     clefProps.height = trebleClefImage.height; // 设置谱号高度
     
-    // 高音谱号初始随机范围：最低下加一线（-2），最高第二线（2）
-    randomRangeProps.minIndex = -2; // 设置最小索引
-    randomRangeProps.maxIndex = 2; // 设置最大索引
+    // 高音谱号初始随机范围：最高第二线（2），最低下加一线（-2）
+    // 修改：现在 minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
+    randomRangeProps.maxIndex = 2; // 设置最高索引
+    randomRangeProps.minIndex = -2; // 设置最低索引
   } else {
     // 低音谱号：禁用自动吸附
     clefProps.autoSnap = false; // 设置自动吸附为false
@@ -2072,14 +2082,16 @@ const bassPitchToStaffPosition = {
     clefProps.width = bassClefImage.width; // 设置谱号宽度
     clefProps.height = bassClefImage.height; // 设置谱号高度
     
-    // 低音谱号初始随机范围：最低第四线（6），最高上加一线（10）
-    randomRangeProps.minIndex = 6; // 设置最小索引
-    randomRangeProps.maxIndex = 10; // 设置最大索引
+    // 低音谱号初始随机范围：最高上加一线（10），最低第四线（6）
+    // 修改：现在 minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
+    randomRangeProps.maxIndex = 10; // 设置最高索引
+    randomRangeProps.minIndex = 6; // 设置最低索引
   }
   
   // 更新下拉框选中项
-  minPositionSelect.value = randomRangeProps.minIndex; // 设置最小位置选择器值
-  maxPositionSelect.value = randomRangeProps.maxIndex; // 设置最大位置选择器值
+  // 修改：minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
+  minPositionSelect.value = randomRangeProps.maxIndex; // 设置最高位置选择器值
+  maxPositionSelect.value = randomRangeProps.minIndex; // 设置最低位置选择器值
   
   // 更新不重复随机数量为当前范围最大值
   updateNonRepeatMaxCount(); // 更新不重复最大数量
@@ -3140,69 +3152,135 @@ const bassPitchToStaffPosition = {
      * 刷新MIDI设备列表
      */
     function refreshMidiDevices() {
-      if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
-      
-      // 清空设备列表
-      midiDeviceSelect.innerHTML = '<option value="">-- 请选择MIDI设备 --</option>'; // 清空设备选择器
-      midiProps.inputs = []; // 重置输入设备数组
-      
-      // 获取所有MIDI输入设备
-      const inputs = midiProps.access.inputs.values(); // 获取输入设备迭代器
-      for (const input of inputs) {
-        midiProps.inputs.push(input); // 添加到输入设备数组
-        const option = document.createElement('option'); // 创建选项元素
-        option.value = input.id; // 设置选项值
-        option.textContent = input.name; // 设置选项文本
-        if (input === midiProps.selectedInput) {
-          option.selected = true; // 设置选中状态
-        }
-        midiDeviceSelect.appendChild(option); // 添加到设备选择器
-      }
-      
-      // 更新设备状态
-      if (midiProps.selectedInput && midiProps.selectedInput.state === 'connected') {
-        midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
-        midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
-      } else {
-        midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
-        midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
-        midiProps.selectedInput = null; // 重置选中的输入设备
-      }
-      
-      updateMidiStatus(); // 更新MIDI状态显示
+  if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
+  
+  // 清空设备列表
+  midiDeviceSelect.innerHTML = '<option value="">-- 请选择MIDI设备 --</option>'; // 清空设备选择器
+  midiProps.inputs = []; // 重置输入设备数组
+  
+  // 获取所有MIDI输入设备
+  const inputs = midiProps.access.inputs.values(); // 获取输入设备迭代器
+  const wiredInputs = []; // 有线设备
+  const bluetoothInputs = []; // 蓝牙设备
+  
+  for (const input of inputs) {
+    // 根据设备名称判断是否为蓝牙设备（简单关键字匹配，可根据实际需要扩展）
+    const name = input.name.toLowerCase();
+    const isBluetooth = name.includes('bluetooth') || name.includes('蓝牙');
+    if (isBluetooth) {
+      bluetoothInputs.push(input);
+    } else {
+      wiredInputs.push(input);
     }
+  }
+  
+  // 优先有线模式：如果有线设备存在，则只显示有线设备
+  let displayInputs = [];
+  if (midiProps.preferWired && wiredInputs.length > 0) {
+    displayInputs = wiredInputs;
+    console.log('有线设备存在，已过滤蓝牙设备');
+  } else {
+    displayInputs = [...wiredInputs, ...bluetoothInputs]; // 全部显示
+  }
+  
+  // 将设备添加到下拉框
+  for (const input of displayInputs) {
+    midiProps.inputs.push(input); // 添加到输入设备数组
+    const option = document.createElement('option'); // 创建选项元素
+    option.value = input.id; // 设置选项值
+    option.textContent = input.name + (input === midiProps.selectedInput ? ' (当前)' : ''); // 设置选项文本
+    if (input === midiProps.selectedInput) {
+      option.selected = true; // 设置选中状态
+    }
+    midiDeviceSelect.appendChild(option); // 添加到设备选择器
+  }
+  
+  // 如果有线设备存在且当前没有选中任何设备，自动选择第一个有线设备
+  if (midiProps.preferWired && wiredInputs.length > 0 && !midiProps.selectedInput) {
+    selectMidiDevice(wiredInputs[0].id);
+  }
+  
+  // 更新设备状态
+  if (midiProps.selectedInput && midiProps.selectedInput.state === 'connected') {
+    midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
+    midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
+  } else {
+    midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
+    midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
+    midiProps.selectedInput = null; // 重置选中的输入设备
+  }
+  
+  // 更新连接模式显示（需要HTML中有对应的span元素）
+  const modeSpan = document.getElementById('midi-connection-mode');
+  if (modeSpan) {
+    if (midiProps.preferWired && wiredInputs.length > 0) {
+      modeSpan.textContent = '有线连接（蓝牙已禁用）';
+      modeSpan.style.color = '#10b981';
+    } else if (midiProps.preferWired && wiredInputs.length === 0 && bluetoothInputs.length > 0) {
+      modeSpan.textContent = '蓝牙连接（无线设备）';
+      modeSpan.style.color = '#f59e0b';
+    } else {
+      modeSpan.textContent = '无设备';
+      modeSpan.style.color = '#ef4444';
+    }
+  }
+  
+  updateMidiStatus(); // 更新MIDI状态显示
+}
     
     /**
      * 选择MIDI设备
      * @param {string} deviceId - 设备ID
      */
     function selectMidiDevice(deviceId) {
-      if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
-      
-      // 取消之前选中的设备监听
-      if (midiProps.selectedInput) {
-        midiProps.selectedInput.onmidimessage = null; // 移除MIDI消息监听
+  if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
+  
+  // 查找要选中的设备
+  const newInput = midiProps.inputs.find(input => input.id === deviceId) || null;
+  
+  // [新增] 如果启用了优先有线模式，且新设备是蓝牙设备，但有线设备存在，则禁止选择
+  if (midiProps.preferWired && newInput) {
+    const isBluetooth = newInput.name.toLowerCase().includes('bluetooth') || 
+                        newInput.name.toLowerCase().includes('蓝牙');
+    if (isBluetooth) {
+      // 检查是否存在有线设备
+      const hasWired = midiProps.inputs.some(input => 
+        !(input.name.toLowerCase().includes('bluetooth') || input.name.toLowerCase().includes('蓝牙'))
+      );
+      if (hasWired) {
+        alert('当前有有线MIDI设备已连接，无法选择蓝牙设备。如需使用蓝牙，请先断开有线设备。');
+        return; // 阻止选择
       }
-      
-      // 选择新设备
-      midiProps.selectedInput = midiProps.inputs.find(input => input.id === deviceId) || null; // 查找选中的设备
-      
-      if (midiProps.selectedInput) {
-        // 设置新设备的监听
-        midiProps.selectedInput.onmidimessage = handleMidiMessage; // 设置MIDI消息监听
-        console.log(`已选择MIDI设备: ${midiProps.selectedInput.name}`); // 输出选择信息
-        
-        // 更新设备状态
-        midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
-        midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
-      } else {
-        // 更新设备状态
-        midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
-        midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
-      }
-      
-      updateMidiStatus(); // 更新MIDI状态显示
     }
+  }
+  
+  // 取消之前选中的设备监听
+  if (midiProps.selectedInput) {
+    midiProps.selectedInput.onmidimessage = null; // 移除MIDI消息监听
+  }
+  
+  // 选择新设备
+  midiProps.selectedInput = newInput;
+  
+  if (midiProps.selectedInput) {
+    // 设置新设备的监听
+    midiProps.selectedInput.onmidimessage = handleMidiMessage; // 设置MIDI消息监听
+    console.log(`已选择MIDI设备: ${midiProps.selectedInput.name}`); // 输出选择信息
+    
+    // 更新设备状态
+    midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
+    midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
+  } else {
+    // 更新设备状态
+    midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
+    midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
+  }
+  
+  // 刷新下拉框显示（更新选中状态和名称后缀）
+  refreshMidiDevices(); // 重新生成选项，以反映当前选中状态
+  
+  updateMidiStatus(); // 更新MIDI状态显示
+}
     
     /**
      * 启用/禁用MIDI输入
@@ -3689,56 +3767,58 @@ const bassPitchToStaffPosition = {
     
     // 随机范围变化时更新不重复随机数量的最大值
     minPositionSelect.addEventListener('change', () => {
-      randomRangeProps.minIndex = parseInt(minPositionSelect.value); // 设置最小索引
-      updateNonRepeatMaxCount(); // 更新不重复最大数量
-      setNonRepeatToMax(); // 设置不重复数量为最大值
-      
-      // 重新初始化历史记录
-      if (nonRepeatProps.count > 0) {
-        // 获取当前音符的位置索引
-        const basePosition = parseInt(positionSlider.value); // 获取基准位置
-        const spacing = parseInt(spacingSlider.value); // 获取线间距
-        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
-        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
-        
-        // 如果当前索引在范围内，记录它
-        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
-        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
-        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
-          nonRepeatProps.history = [currentIndex]; // 设置历史记录
-        } else {
-          nonRepeatProps.history = []; // 清空历史记录
-        }
-      }
-      updateNonRepeatHistoryDisplay(); // 更新历史记录显示
-      randomMoveNote(); // 设置后立即执行一次随机
-    });
+  // 修改：minPositionSelect 实际对应最高位置，应该更新 maxIndex
+  randomRangeProps.maxIndex = parseInt(minPositionSelect.value); // 设置最高索引
+  updateNonRepeatMaxCount(); // 更新不重复最大数量
+  setNonRepeatToMax(); // 设置不重复数量为最大值
+  
+  // 重新初始化历史记录
+  if (nonRepeatProps.count > 0) {
+    // 获取当前音符的位置索引
+    const basePosition = parseInt(positionSlider.value); // 获取基准位置
+    const spacing = parseInt(spacingSlider.value); // 获取线间距
+    const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
+    const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
     
-    maxPositionSelect.addEventListener('change', () => {
-      randomRangeProps.maxIndex = parseInt(maxPositionSelect.value); // 设置最大索引
-      updateNonRepeatMaxCount(); // 更新不重复最大数量
-      setNonRepeatToMax(); // 设置不重复数量为最大值
-      
-      // 重新初始化历史记录
-      if (nonRepeatProps.count > 0) {
-        // 获取当前音符的位置索引
-        const basePosition = parseInt(positionSlider.value); // 获取基准位置
-        const spacing = parseInt(spacingSlider.value); // 获取线间距
-        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
-        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
-        
-        // 如果当前索引在范围内，记录它
-        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
-        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
-        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
-          nonRepeatProps.history = [currentIndex]; // 设置历史记录
-        } else {
-          nonRepeatProps.history = []; // 清空历史记录
-        }
-      }
-      updateNonRepeatHistoryDisplay(); // 更新历史记录显示
-      randomMoveNote(); // 设置后立即执行一次随机
-    });
+    // 如果当前索引在范围内，记录它
+    const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
+    const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
+    if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+      nonRepeatProps.history = [currentIndex]; // 设置历史记录
+    } else {
+      nonRepeatProps.history = []; // 清空历史记录
+    }
+  }
+  updateNonRepeatHistoryDisplay(); // 更新历史记录显示
+  randomMoveNote(); // 设置后立即执行一次随机
+});
+
+maxPositionSelect.addEventListener('change', () => {
+  // 修改：maxPositionSelect 实际对应最低位置，应该更新 minIndex
+  randomRangeProps.minIndex = parseInt(maxPositionSelect.value); // 设置最低索引
+  updateNonRepeatMaxCount(); // 更新不重复最大数量
+  setNonRepeatToMax(); // 设置不重复数量为最大值
+  
+  // 重新初始化历史记录
+  if (nonRepeatProps.count > 0) {
+    // 获取当前音符的位置索引
+    const basePosition = parseInt(positionSlider.value); // 获取基准位置
+    const spacing = parseInt(spacingSlider.value); // 获取线间距
+    const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
+    const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
+    
+    // 如果当前索引在范围内，记录它
+    const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
+    const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
+    if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+      nonRepeatProps.history = [currentIndex]; // 设置历史记录
+    } else {
+      nonRepeatProps.history = []; // 清空历史记录
+    }
+  }
+  updateNonRepeatHistoryDisplay(); // 更新历史记录显示
+  randomMoveNote(); // 设置后立即执行一次随机
+});
     
     // ======================================================================
     // 4401-4450: 事件监听器设置 - 谱号类型选择
@@ -4330,32 +4410,35 @@ const bassPitchToStaffPosition = {
     });
     
     randomRangeResetBtn.addEventListener('click', () => {
-      // 根据当前谱号类型重置随机范围
-      if (clefProps.type === CLEF_TYPES.TREBLE) {
-        // 高音谱号：最低下加一线（-2），最高第二线（2）
-        minPositionSelect.value = '-2'; // 重置最小位置
-        maxPositionSelect.value = '2'; // 重置最大位置
-        randomRangeProps.minIndex = -2; // 设置最小索引
-        randomRangeProps.maxIndex = 2; // 设置最大索引
-      } else {
-        // 低音谱号：最低第四线（6），最高上加一线（10）
-        minPositionSelect.value = '6'; // 重置最小位置
-        maxPositionSelect.value = '10'; // 重置最大位置
-        randomRangeProps.minIndex = 6; // 设置最小索引
-        randomRangeProps.maxIndex = 10; // 设置最大索引
-      }
-      
-      // 重置不重复随机数量
-      nonRepeatSlider.value = 0; // 重置不重复数量滑块
-      nonRepeatInput.value = 0; // 重置不重复数量输入框
-      nonRepeatProps.count = 0; // 设置不重复数量
-      nonRepeatProps.history = []; // 清空历史记录
-      
-      updateNonRepeatValueDisplay(); // 更新值显示
-      updateNonRepeatMaxCount(); // 更新不重复最大数量
-      updateNonRepeatHistoryDisplay(); // 更新历史记录显示
-      randomMoveNote(); // 重置后立即执行一次随机
-    });
+  // 根据当前谱号类型重置随机范围
+  if (clefProps.type === CLEF_TYPES.TREBLE) {
+    // 高音谱号：最高第二线（2），最低下加一线（-2）
+    // 修改：minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
+    minPositionSelect.value = '2'; // 重置最高位置
+    maxPositionSelect.value = '-2'; // 重置最低位置
+    randomRangeProps.maxIndex = 2; // 设置最高索引
+    randomRangeProps.minIndex = -2; // 设置最低索引
+  } else {
+    // 低音谱号：最高上加一线（10），最低第四线（6）
+    // 修改：minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
+    minPositionSelect.value = '10'; // 重置最高位置
+    maxPositionSelect.value = '6'; // 重置最低位置
+    randomRangeProps.maxIndex = 10; // 设置最高索引
+    randomRangeProps.minIndex = 6; // 设置最低索引
+  }
+  
+  // 重置不重复随机数量
+  // 修改：将不重复随机数量设置为当前范围的最大值，而不是0
+  updateNonRepeatMaxCount(); // 先更新最大值
+  setNonRepeatToMax(); // 设置不重复数量为最大值
+  
+  // 清空历史记录
+  nonRepeatProps.history = []; // 清空历史记录
+  
+  updateNonRepeatValueDisplay(); // 更新值显示
+  updateNonRepeatHistoryDisplay(); // 更新历史记录显示
+  randomMoveNote(); // 重置后立即执行一次随机
+});
     
     // ======================================================================
     // 4701-4750: 主事件监听器绑定
