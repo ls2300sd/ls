@@ -37,22 +37,38 @@
             text-align: center;
         }
         
-        #connectBtn {
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        
+        #connectBtn, #bluetoothBtn {
             padding: 0.8rem 2rem;
             font-size: 1rem;
-            background-color: #2196F3;
-            color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s;
         }
         
-        #connectBtn:hover {
-            background-color: #1976D2;
+        #connectBtn {
+            background-color: #2196F3;
+            color: white;
         }
         
-        #connectBtn:disabled {
+        #bluetoothBtn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        #connectBtn:hover, #bluetoothBtn:hover {
+            opacity: 0.9;
+        }
+        
+        #connectBtn:disabled, #bluetoothBtn:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
@@ -61,6 +77,15 @@
             margin-top: 1rem;
             font-size: 0.9rem;
             color: #666;
+        }
+        
+        .permission-alert {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background-color: #fff3e0;
+            border-radius: 5px;
+            color: #e65100;
+            display: none;
         }
         
         .display-section {
@@ -92,6 +117,29 @@
             border-radius: 5px;
             display: none;
         }
+        
+        .device-list {
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .device-item {
+            padding: 0.8rem;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .device-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .device-item:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -99,8 +147,13 @@
         <h1>蓝牙MIDI钢琴键检测</h1>
         
         <div class="connect-section">
-            <button id="connectBtn">连接蓝牙MIDI设备</button>
+            <div class="btn-group">
+                <button id="connectBtn">自动搜索MIDI设备</button>
+                <button id="bluetoothBtn">手动选择蓝牙设备</button>
+            </div>
             <div class="status" id="status">未连接设备</div>
+            <div class="permission-alert" id="permissionAlert">请允许蓝牙权限以搜索设备</div>
+            <div class="device-list" id="deviceList"></div>
             <div class="device-info" id="deviceInfo"></div>
         </div>
         
@@ -116,113 +169,255 @@
         
         // DOM元素
         const connectBtn = document.getElementById('connectBtn');
+        const bluetoothBtn = document.getElementById('bluetoothBtn');
         const status = document.getElementById('status');
         const noteDisplay = document.getElementById('noteDisplay');
         const deviceInfo = document.getElementById('deviceInfo');
+        const permissionAlert = document.getElementById('permissionAlert');
+        const deviceList = document.getElementById('deviceList');
+        
+        // 全局MIDI访问对象
+        let midiAccess = null;
         
         // 检查浏览器支持
-        if (!navigator.requestMIDIAccess) {
-            status.textContent = '您的浏览器不支持Web MIDI API，请使用Chrome、Edge或Safari';
-            connectBtn.disabled = true;
+        function checkBrowserSupport() {
+            const isSupported = !!navigator.requestMIDIAccess;
+            const hasBluetooth = !!navigator.bluetooth;
+            
+            if (!isSupported) {
+                status.textContent = '您的浏览器不支持Web MIDI API，请使用Chrome 43+/Edge 79+/Safari 14+';
+                connectBtn.disabled = true;
+                bluetoothBtn.disabled = true;
+                return false;
+            }
+            
+            if (!hasBluetooth) {
+                bluetoothBtn.disabled = true;
+                status.textContent = '浏览器支持MIDI但不支持Web Bluetooth，只能使用USB MIDI设备';
+            }
+            
+            return true;
         }
         
-        // 连接MIDI设备
-        connectBtn.addEventListener('click', async () => {
+        // 请求蓝牙权限（显式请求）
+        async function requestBluetoothPermission() {
             try {
-                connectBtn.disabled = true;
-                status.textContent = '正在搜索MIDI设备...';
-                
-                // 请求MIDI访问权限
-                const midiAccess = await navigator.requestMIDIAccess({
-                    sysex: false, // 不需要系统独占消息
-                    software: false // 只搜索硬件设备
+                // 显式请求蓝牙权限（针对MIDI设备的过滤）
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [
+                        // MIDI设备常见的服务UUID
+                        { services: ['03b80e5a-ede8-4b33-a751-6ce34ec4c700'] },
+                        { services: ['midi'] },
+                        // 通用蓝牙设备（兜底）
+                        { services: ['generic_access'] }
+                    ],
+                    optionalServices: [
+                        '03b80e5a-ede8-4b33-a751-6ce34ec4c700',
+                        'midi'
+                    ]
                 });
                 
-                // 监听设备连接状态
+                status.textContent = `已找到蓝牙设备: ${device.name || '未知设备'}`;
+                return device;
+            } catch (error) {
+                if (error.name === 'NotFoundError') {
+                    status.textContent = '未找到蓝牙设备，请确保设备已开启并处于可配对状态';
+                } else if (error.name === 'SecurityError' || error.message.includes('permission')) {
+                    status.textContent = '蓝牙权限被拒绝，请在浏览器设置中允许蓝牙访问';
+                    permissionAlert.style.display = 'block';
+                } else if (error.message.includes('canceled')) {
+                    status.textContent = '蓝牙设备选择已取消';
+                } else {
+                    status.textContent = `蓝牙错误: ${error.message}`;
+                }
+                console.error('蓝牙请求错误:', error);
+                return null;
+            }
+        }
+        
+        // 初始化MIDI连接
+        async function initMIDIAccess(options = {}) {
+            try {
+                // 完整的MIDI权限请求配置
+                midiAccess = await navigator.requestMIDIAccess({
+                    sysex: false,
+                    software: true, // 包含软件MIDI设备（蓝牙MIDI通常被识别为软件设备）
+                    ...options
+                });
+                
+                // 监听设备状态变化
                 midiAccess.onstatechange = updateDevices;
                 
-                // 初始化设备列表
+                // 立即更新设备列表
                 updateDevices({ target: midiAccess });
                 
+                return midiAccess;
             } catch (error) {
-                console.error('MIDI连接错误:', error);
-                status.textContent = `连接失败: ${error.message}`;
-                connectBtn.disabled = false;
+                console.error('MIDI初始化错误:', error);
                 
-                // 如果是蓝牙权限错误
                 if (error.name === 'SecurityError') {
-                    status.textContent += ' (请确保已开启蓝牙并授予权限)';
+                    status.textContent = 'MIDI权限被拒绝，请在浏览器设置中允许MIDI访问';
+                    permissionAlert.style.display = 'block';
+                } else if (error.message.includes('user denied')) {
+                    status.textContent = '用户拒绝了MIDI设备访问权限';
+                } else {
+                    status.textContent = `MIDI连接失败: ${error.message}`;
                 }
+                
+                connectBtn.disabled = false;
+                bluetoothBtn.disabled = false;
+                return null;
             }
-        });
+        }
         
-        // 更新设备列表并监听MIDI消息
+        // 更新MIDI设备列表
         function updateDevices(event) {
             const midiAccess = event.target;
             const inputs = Array.from(midiAccess.inputs.values());
+            const outputs = Array.from(midiAccess.outputs.values());
             
-            if (inputs.length === 0) {
-                status.textContent = '未找到MIDI设备，请确保设备已开启蓝牙并处于可连接状态';
-                connectBtn.disabled = false;
+            // 清空设备列表
+            deviceList.innerHTML = '';
+            deviceList.style.display = 'none';
+            
+            if (inputs.length === 0 && outputs.length === 0) {
+                status.textContent = `未找到MIDI设备 (已扫描${inputs.length}输入+${outputs.length}输出)`;
                 deviceInfo.style.display = 'none';
                 return;
             }
             
-            status.textContent = `已找到 ${inputs.length} 个MIDI设备`;
+            status.textContent = `已找到 ${inputs.length} 个MIDI输入设备 + ${outputs.length} 个输出设备`;
             
-            // 显示第一个设备信息
-            const firstDevice = inputs[0];
-            deviceInfo.textContent = `当前设备: ${firstDevice.name} (制造商: ${firstDevice.manufacturer || '未知'})`;
-            deviceInfo.style.display = 'block';
+            // 显示所有可用设备
+            const allDevices = [...inputs, ...outputs];
+            const uniqueDevices = new Map();
             
-            // 监听所有MIDI输入设备的消息
-            inputs.forEach(input => {
-                input.onmidimessage = handleMIDIMessage;
+            allDevices.forEach(device => {
+                if (!uniqueDevices.has(device.id)) {
+                    uniqueDevices.set(device.id, device);
+                    
+                    const deviceItem = document.createElement('div');
+                    deviceItem.className = 'device-item';
+                    deviceItem.innerHTML = `
+                        <strong>${device.name || '未知设备'}</strong><br>
+                        制造商: ${device.manufacturer || '未知'}<br>
+                        状态: ${device.state} (${device.type === 'input' ? '输入' : '输出'})
+                    `;
+                    
+                    // 点击设备进行连接
+                    deviceItem.addEventListener('click', () => connectToDevice(device));
+                    deviceList.appendChild(deviceItem);
+                }
             });
             
-            noteDisplay.placeholder = '设备已连接，按下钢琴键开始检测...';
+            // 如果有多个设备，显示选择列表
+            if (uniqueDevices.size > 1) {
+                deviceList.style.display = 'block';
+                status.textContent += ' - 请选择要连接的设备';
+            } 
+            // 如果只有一个设备，自动连接
+            else if (uniqueDevices.size === 1) {
+                const firstDevice = Array.from(uniqueDevices.values())[0];
+                connectToDevice(firstDevice);
+            }
+        }
+        
+        // 连接到指定MIDI设备
+        function connectToDevice(device) {
+            // 显示设备信息
+            deviceInfo.innerHTML = `
+                <strong>已连接设备:</strong> ${device.name || '未知设备'}<br>
+                <strong>制造商:</strong> ${device.manufacturer || '未知'}<br>
+                <strong>设备ID:</strong> ${device.id}<br>
+                <strong>状态:</strong> ${device.state}
+            `;
+            deviceInfo.style.display = 'block';
+            
+            // 如果是输入设备，监听MIDI消息
+            if (device.type === 'input') {
+                device.onmidimessage = handleMIDIMessage;
+                status.textContent = `已连接: ${device.name || '未知设备'} (输入设备)`;
+                noteDisplay.placeholder = '设备已连接，按下钢琴键开始检测...';
+            } else {
+                status.textContent = `已连接: ${device.name || '未知设备'} (输出设备) - 请选择输入设备`;
+            }
+            
+            // 隐藏设备列表
+            deviceList.style.display = 'none';
         }
         
         // 处理MIDI消息
         function handleMIDIMessage(event) {
             const [statusByte, noteNumber, velocity] = event.data;
             
-            // 只处理音符按下消息 (0x90 = 音符开启, 0x80 = 音符关闭)
+            // 只处理音符按下消息 (0x90 = 音符开启)
             const command = statusByte & 0xf0;
             
-            // 音符按下 (velocity > 0)
-            if (command === 0x90 && velocity > 0) {
-                if (noteNumber >= 21 && noteNumber <= 108) { // 88键钢琴范围
-                    const octave = Math.floor(noteNumber / 12) - 1;
-                    const noteName = NOTE_NAMES[noteNumber % 12];
-                    const fullNoteName = `${noteName}${octave}`;
-                    
-                    // 显示音名 (添加时间戳便于查看)
-                    const now = new Date();
-                    const timeStr = now.toLocaleTimeString();
-                    const displayText = `[${timeStr}] 按键: ${fullNoteName} (MIDI编号: ${noteNumber})\n`;
-                    
-                    // 保持最新10条记录
-                    noteDisplay.value = displayText + noteDisplay.value.substring(0, 500);
-                }
+            // 音符按下 (velocity > 0) 且在88键范围内
+            if (command === 0x90 && velocity > 0 && noteNumber >= 21 && noteNumber <= 108) {
+                const octave = Math.floor(noteNumber / 12) - 1;
+                const noteName = NOTE_NAMES[noteNumber % 12];
+                const fullNoteName = `${noteName}${octave}`;
+                
+                // 显示音名 (添加时间戳)
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString();
+                const displayText = `[${timeStr}] 按键: ${fullNoteName} (MIDI编号: ${noteNumber})\n`;
+                
+                // 保持最新10条记录
+                noteDisplay.value = displayText + noteDisplay.value.substring(0, 500);
             }
         }
         
-        // 页面加载时检查已连接的设备
-        window.addEventListener('load', async () => {
-            try {
-                const midiAccess = await navigator.requestMIDIAccess({
-                    sysex: false,
-                    software: false
-                });
+        // 事件监听
+        function initEventListeners() {
+            // 自动搜索MIDI设备
+            connectBtn.addEventListener('click', async () => {
+                connectBtn.disabled = true;
+                bluetoothBtn.disabled = true;
+                permissionAlert.style.display = 'none';
+                status.textContent = '正在搜索MIDI设备...';
                 
-                if (Array.from(midiAccess.inputs.values()).length > 0) {
-                    updateDevices({ target: midiAccess });
+                await initMIDIAccess();
+                
+                connectBtn.disabled = false;
+                bluetoothBtn.disabled = false;
+            });
+            
+            // 手动选择蓝牙设备
+            bluetoothBtn.addEventListener('click', async () => {
+                connectBtn.disabled = true;
+                bluetoothBtn.disabled = true;
+                permissionAlert.style.display = 'none';
+                status.textContent = '正在搜索蓝牙设备...';
+                
+                // 先请求蓝牙设备
+                const bluetoothDevice = await requestBluetoothPermission();
+                
+                if (bluetoothDevice) {
+                    // 再初始化MIDI
+                    await initMIDIAccess();
                 }
-            } catch (e) {
-                // 静默失败，用户点击连接按钮时再提示
-            }
-        });
+                
+                connectBtn.disabled = false;
+                bluetoothBtn.disabled = false;
+            });
+            
+            // 页面加载时检查已连接设备
+            window.addEventListener('load', async () => {
+                if (checkBrowserSupport()) {
+                    try {
+                        await initMIDIAccess();
+                    } catch (e) {
+                        // 静默失败，用户主动点击时再提示
+                    }
+                }
+            });
+        }
+        
+        // 初始化
+        checkBrowserSupport();
+        initEventListeners();
     </script>
 </body>
 </html>
