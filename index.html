@@ -4,7 +4,7 @@
   <!-- 1-10: 基础HTML结构和元数据 -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>五线谱绘制工具 - 钢琴键盘版</title>
+  <title>五线谱绘制工具 - 钢琴键盘版 (集成蓝牙MIDI)</title>
   
   <!-- 11-15: 外部资源引入 -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -537,7 +537,7 @@
       <nav class="flex items-center justify-between h-16 px-4">
         <div class="flex items-center">
           <i class="fa fa-music text-blue-600 text-xl mr-2"></i>
-          <span class="font-bold text-gray-800 text-lg truncate">五线谱绘制工具 - 钢琴键盘版</span>
+          <span class="font-bold text-gray-800 text-lg truncate">五线谱绘制工具 - 钢琴键盘版 (蓝牙MIDI)</span>
         </div>
         
         <div class="flex items-center space-x-1 relative">
@@ -1252,7 +1252,7 @@
     </div>
   </div>
 
-  <!-- 2951-3000: MIDI设备设置模态框结构 -->
+  <!-- 2951-3000: MIDI设备设置模态框结构（已集成蓝牙MIDI） -->
   <div id="midi-settings-container">
     <div class="modal-backdrop" id="midi-settings-modal">
       <div class="modal-content">
@@ -1277,13 +1277,6 @@
             <span id="midi-device-status" class="text-sm font-mono midi-disconnected">未连接</span>
           </div>
         </div>
-
-<div class="slider-wrapper">
-  <div class="slider-label">
-    <span>连接模式</span>
-    <span id="midi-connection-mode" class="text-sm font-mono">自动优先有线</span>
-  </div>
-</div>
         
         <!-- MIDI音符显示 -->
         <div class="slider-wrapper">
@@ -1312,6 +1305,56 @@
             class="w-5 h-5 accent-blue-600"
             checked
           >
+        </div>
+        
+        <!-- 蓝牙 MIDI 设置区域（新增） -->
+        <div class="slider-wrapper border-t border-slate-700 pt-4 mt-4">
+          <h3 class="text-lg font-semibold mb-4 text-secondary flex items-center">
+            <i class="fa fa-bluetooth mr-2 text-blue-600"></i>蓝牙 MIDI 设置
+          </h3>
+          
+          <!-- 蓝牙连接状态显示 -->
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-600">蓝牙 MIDI 状态</span>
+            <span id="bluetooth-midi-status" class="text-sm font-mono text-gray-400">未连接</span>
+          </div>
+          
+          <!-- 蓝牙连接按钮 -->
+          <div class="flex gap-2 mb-4">
+            <button id="connect-bluetooth-midi" class="flex-1 btn-primary bg-blue-600 hover:bg-blue-700">
+              <i class="fa fa-bluetooth mr-2"></i>连接蓝牙 MIDI 设备
+            </button>
+            <button id="disconnect-bluetooth-midi" class="flex-1 btn-primary bg-gray-600 hover:bg-gray-700" disabled>
+              <i class="fa fa-times mr-2"></i>断开连接
+            </button>
+          </div>
+          
+          <!-- 蓝牙优化参数 -->
+          <div class="slider-wrapper">
+            <div class="slider-label">
+              <span>蓝牙数据包缓冲大小</span>
+              <div class="input-group">
+                <span id="bluetooth-buffer-value" class="font-mono">3</span>
+                <input type="number" id="bluetooth-buffer-input" class="number-input" min="1" max="10" value="3">
+              </div>
+            </div>
+            <input type="range" id="bluetooth-buffer-slider" class="slider-input" min="1" max="10" value="3">
+          </div>
+          
+          <div class="slider-wrapper">
+            <div class="slider-label">
+              <span>蓝牙去抖动时间 (ms)</span>
+              <div class="input-group">
+                <span id="bluetooth-debounce-value" class="font-mono">20</span>
+                <input type="number" id="bluetooth-debounce-input" class="number-input" min="0" max="100" value="20">
+              </div>
+            </div>
+            <input type="range" id="bluetooth-debounce-slider" class="slider-input" min="0" max="100" value="20">
+          </div>
+          
+          <p class="text-xs text-gray-400 mt-2">
+            当有线 MIDI 设备连接时，蓝牙 MIDI 将被自动禁用（连接按钮不可用）。
+          </p>
         </div>
         
         <!-- 按钮区域 -->
@@ -1578,7 +1621,7 @@
     const showOnlyCentralCCheckbox = document.getElementById('show-only-central-c'); // 仅显示中央C复选框
     const enablePinchZoomCheckbox = document.getElementById('enable-pinch-zoom'); // 启用双指缩放复选框
     
-    // MIDI设置模态框相关元素
+    // MIDI设置模态框相关元素（新增蓝牙相关）
     const midiSettingsContainer = document.getElementById('midi-settings-container'); // MIDI设置容器
     const midiSettingsModal = document.getElementById('midi-settings-modal'); // MIDI设置模态框
     const midiSettingsBtn = document.getElementById('midi-settings-btn'); // MIDI设置按钮
@@ -1589,6 +1632,16 @@
     const midiNoteDisplay = document.getElementById('midi-note-display'); // MIDI音符显示
     const enableMidiInputCheckbox = document.getElementById('enable-midi-input'); // 启用MIDI输入复选框
     const midiNoteCompareCheckbox = document.getElementById('midi-note-compare'); // MIDI音符对比复选框
+    // 蓝牙MIDI元素
+    const connectBluetoothMidiBtn = document.getElementById('connect-bluetooth-midi');
+    const disconnectBluetoothMidiBtn = document.getElementById('disconnect-bluetooth-midi');
+    const bluetoothMidiStatus = document.getElementById('bluetooth-midi-status');
+    const bluetoothBufferSlider = document.getElementById('bluetooth-buffer-slider');
+    const bluetoothBufferInput = document.getElementById('bluetooth-buffer-input');
+    const bluetoothBufferValue = document.getElementById('bluetooth-buffer-value');
+    const bluetoothDebounceSlider = document.getElementById('bluetooth-debounce-slider');
+    const bluetoothDebounceInput = document.getElementById('bluetooth-debounce-input');
+    const bluetoothDebounceValue = document.getElementById('bluetooth-debounce-value');
     
     // 随机范围设置模态框相关元素
     const randomRangeContainer = document.getElementById('random-range-container'); // 随机范围设置容器
@@ -1748,18 +1801,26 @@
       initialDistance: null    // 双指初始距离
     };
     
-    // MIDI设备属性对象
+    // MIDI设备属性对象（已集成蓝牙）
     let midiProps = {
-  enabled: false,          // 是否启用MIDI输入
-  access: null,            // MIDI访问对象
-  inputs: [],              // MIDI输入设备列表
-  selectedInput: null,     // 选中的MIDI输入设备
-  noteCompare: true,       // MIDI音符对比功能
-  lastNote: null,          // 最后一个MIDI音符
-  activeNotes: new Set(),  // 当前活动的MIDI音符
-  // [新增] 是否优先使用有线设备（默认true）
-  preferWired: true
-};
+      enabled: false,          // 是否启用MIDI输入
+      access: null,            // MIDI访问对象
+      inputs: [],              // MIDI输入设备列表
+      selectedInput: null,     // 选中的MIDI输入设备
+      noteCompare: true,       // MIDI音符对比功能
+      lastNote: null,          // 最后一个MIDI音符
+      activeNotes: new Set(),  // 当前活动的MIDI音符
+      preferWired: true,       // 是否优先有线
+      // 蓝牙相关
+      bluetoothDevice: null,
+      bluetoothCharacteristic: null,
+      isBluetoothConnected: false,
+      bluetoothBufferSize: 3,
+      bluetoothDebounceTime: 20,
+      bluetoothMessageBuffer: [],  // 消息缓冲区
+      bluetoothProcessing: false,  // 是否正在处理消息
+      lastBluetoothMessageTime: 0
+    };
     
     // ======================================================================
     // 3151-3200: 音名映射关系定义
@@ -1815,51 +1876,51 @@
     
     // 音名映射关系 - 低音谱号：C4在上加一线，其他音相应上移
     const bassPitchNames = {
-  // 下加线部分（索引为负数）
-  [-16]: "", // 超出88键范围
-  [-15]: "", // 超出88键范围
-  [-14]: "G0",
-  [-13]: "A0",
-  [-12]: "B0",
-  [-11]: "C1",
-  [-10]: "D1",
-  [-9]: "E1",
-  [-8]: "F1",
-  [-7]: "G1",
-  [-6]: "A1",
-  [-5]: "B1",
-  [-4]: "C2",
-  [-3]: "D2",
-  [-2]: "E2",
-  [-1]: "F2",
-  
-  // 五线谱部分（索引0-8）
-  0: "G2",   // 第一线
-  1: "A2",   // 第一间
-  2: "B2",   // 第二线
-  3: "C3",   // 第二间
-  4: "D3",   // 第三线
-  5: "E3",   // 第三间
-  6: "F3",   // 第四线
-  7: "G3",   // 第四间
-  8: "A3",   // 第五线
-  9: "B3",   // 上加一间
-  10: "C4",  // 上加一线
-  11: "D4",  // 上加二间
-  12: "E4",  // 上加二线
-  13: "F4",  // 上加三间
-  14: "G4",  // 上加三线
-  15: "A4",  // 上加四间
-  16: "B4",  // 上加四线
-  17: "C5",  // 上加五间
-  18: "D5",  // 上加五线
-  19: "E5",  // 上加六间
-  20: "F5",  // 上加六线
-  21: "G5",  // 上加七间
-  22: "A5",  // 上加七线
-  23: "B5",  // 上加八间
-  24: "C6",  // 上加八线
-};
+      // 下加线部分（索引为负数）
+      [-16]: "", // 超出88键范围
+      [-15]: "", // 超出88键范围
+      [-14]: "G0",
+      [-13]: "A0",
+      [-12]: "B0",
+      [-11]: "C1",
+      [-10]: "D1",
+      [-9]: "E1",
+      [-8]: "F1",
+      [-7]: "G1",
+      [-6]: "A1",
+      [-5]: "B1",
+      [-4]: "C2",
+      [-3]: "D2",
+      [-2]: "E2",
+      [-1]: "F2",
+      
+      // 五线谱部分（索引0-8）
+      0: "G2",   // 第一线
+      1: "A2",   // 第一间
+      2: "B2",   // 第二线
+      3: "C3",   // 第二间
+      4: "D3",   // 第三线
+      5: "E3",   // 第三间
+      6: "F3",   // 第四线
+      7: "G3",   // 第四间
+      8: "A3",   // 第五线
+      9: "B3",   // 上加一间
+      10: "C4",  // 上加一线
+      11: "D4",  // 上加二间
+      12: "E4",  // 上加二线
+      13: "F4",  // 上加三间
+      14: "G4",  // 上加三线
+      15: "A4",  // 上加四间
+      16: "B4",  // 上加四线
+      17: "C5",  // 上加五间
+      18: "D5",  // 上加五线
+      19: "E5",  // 上加六间
+      20: "F5",  // 上加六线
+      21: "G5",  // 上加七间
+      22: "A5",  // 上加七线
+      23: "B5",  // 上加八间
+      24: "C6",  // 上加八线
+    };
     
     // ======================================================================
     // 3201-3250: 工具函数定义
@@ -1905,15 +1966,15 @@
     };
     
     // 低音谱号的音名到五线谱位置的映射
-const bassPitchToStaffPosition = {
-  "G0": -14, "A0": -13, "B0": -12,
-  "C1": -11, "D1": -10, "E1": -9, "F1": -8, "G1": -7, "A1": -6, "B1": -5,
-  "C2": -4, "D2": -3, "E2": -2, "F2": -1,
-  "G2": 0, "A2": 1, "B2": 2, "C3": 3, "D3": 4, "E3": 5, "F3": 6, "G3": 7, "A3": 8, "B3": 9,
-  "C4": 10, "D4": 11, "E4": 12, "F4": 13, "G4": 14, "A4": 15, "B4": 16,
-  "C5": 17, "D5": 18, "E5": 19, "F5": 20, "G5": 21, "A5": 22, "B5": 23,
-  "C6": 24
-};
+    const bassPitchToStaffPosition = {
+      "G0": -14, "A0": -13, "B0": -12,
+      "C1": -11, "D1": -10, "E1": -9, "F1": -8, "G1": -7, "A1": -6, "B1": -5,
+      "C2": -4, "D2": -3, "E2": -2, "F2": -1,
+      "G2": 0, "A2": 1, "B2": 2, "C3": 3, "D3": 4, "E3": 5, "F3": 6, "G3": 7, "A3": 8, "B3": 9,
+      "C4": 10, "D4": 11, "E4": 12, "F4": 13, "G4": 14, "A4": 15, "B4": 16,
+      "C5": 17, "D5": 18, "E5": 19, "F5": 20, "G5": 21, "A5": 22, "B5": 23,
+      "C6": 24
+    };
     
     // 线间名称映射
     const lineSpaceNames = {
@@ -2049,56 +2110,53 @@ const bassPitchToStaffPosition = {
     
     /**
      * 更新谱号类型
- * @param {string} type - 谱号类型 ('treble' 或 'bass')
- */
-function updateClefType(type) {
-  clefProps.type = type; // 设置谱号类型
-  
-  // 更新谱号类型选择器UI
-  clefTypeOptions.forEach(option => {
-    if (option.dataset.type === type) {
-      option.classList.add('active'); // 添加激活状态类
-    } else {
-      option.classList.remove('active'); // 移除激活状态类
+     * @param {string} type - 谱号类型 ('treble' 或 'bass')
+     */
+    function updateClefType(type) {
+      clefProps.type = type; // 设置谱号类型
+      
+      // 更新谱号类型选择器UI
+      clefTypeOptions.forEach(option => {
+        if (option.dataset.type === type) {
+          option.classList.add('active'); // 添加激活状态类
+        } else {
+          option.classList.remove('active'); // 移除激活状态类
+        }
+      });
+      
+      // 根据谱号类型设置不同的默认属性
+      if (type === CLEF_TYPES.TREBLE) {
+        // 高音谱号：启用自动吸附
+        clefProps.autoSnap = true; // 设置自动吸附为true
+        clefAutoSnapCheckbox.checked = true; // 设置复选框为选中状态
+        clefProps.width = trebleClefImage.width; // 设置谱号宽度
+        clefProps.height = trebleClefImage.height; // 设置谱号高度
+        
+        // 高音谱号初始随机范围：最低下加一线（-2），最高第二线（2）
+        randomRangeProps.minIndex = -2; // 设置最小索引
+        randomRangeProps.maxIndex = 2; // 设置最大索引
+      } else {
+        // 低音谱号：禁用自动吸附
+        clefProps.autoSnap = false; // 设置自动吸附为false
+        clefAutoSnapCheckbox.checked = false; // 设置复选框为未选中状态
+        clefProps.width = bassClefImage.width; // 设置谱号宽度
+        clefProps.height = bassClefImage.height; // 设置谱号高度
+        
+        // 低音谱号初始随机范围：最低第四线（6），最高上加一线（10）
+        randomRangeProps.minIndex = 6; // 设置最小索引
+        randomRangeProps.maxIndex = 10; // 设置最大索引
+      }
+      
+      // 更新下拉框选中项
+      minPositionSelect.value = randomRangeProps.minIndex; // 设置最小位置选择器值
+      maxPositionSelect.value = randomRangeProps.maxIndex; // 设置最大位置选择器值
+      
+      // 更新不重复随机数量为当前范围最大值
+      updateNonRepeatMaxCount(); // 更新不重复最大数量
+      setNonRepeatToMax(); // 设置不重复数量为最大值
+      
+      drawLines(); // 重绘画布
     }
-  });
-  
-  // 根据谱号类型设置不同的默认属性
-  if (type === CLEF_TYPES.TREBLE) {
-    // 高音谱号：启用自动吸附
-    clefProps.autoSnap = true; // 设置自动吸附为true
-    clefAutoSnapCheckbox.checked = true; // 设置复选框为选中状态
-    clefProps.width = trebleClefImage.width; // 设置谱号宽度
-    clefProps.height = trebleClefImage.height; // 设置谱号高度
-    
-    // 高音谱号初始随机范围：最高第二线（2），最低下加一线（-2）
-    // 修改：现在 minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
-    randomRangeProps.maxIndex = 2; // 设置最高索引
-    randomRangeProps.minIndex = -2; // 设置最低索引
-  } else {
-    // 低音谱号：禁用自动吸附
-    clefProps.autoSnap = false; // 设置自动吸附为false
-    clefAutoSnapCheckbox.checked = false; // 设置复选框为未选中状态
-    clefProps.width = bassClefImage.width; // 设置谱号宽度
-    clefProps.height = bassClefImage.height; // 设置谱号高度
-    
-    // 低音谱号初始随机范围：最高上加一线（10），最低第四线（6）
-    // 修改：现在 minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
-    randomRangeProps.maxIndex = 10; // 设置最高索引
-    randomRangeProps.minIndex = 6; // 设置最低索引
-  }
-  
-  // 更新下拉框选中项
-  // 修改：minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
-  minPositionSelect.value = randomRangeProps.maxIndex; // 设置最高位置选择器值
-  maxPositionSelect.value = randomRangeProps.minIndex; // 设置最低位置选择器值
-  
-  // 更新不重复随机数量为当前范围最大值
-  updateNonRepeatMaxCount(); // 更新不重复最大数量
-  setNonRepeatToMax(); // 设置不重复数量为最大值
-  
-  drawLines(); // 重绘画布
-}
     
     // ======================================================================
     // 3351-3400: 核心功能函数 - 界面控制
@@ -2222,13 +2280,22 @@ function updateClefType(type) {
     }
     
     /**
-     * 打开MIDI设置模态框
+     * 打开MIDI设置模态框（已集成蓝牙）
      */
     function openMidiModal() {
       closeSettingsMenu(); // 关闭子菜单
       closeAllModals();    // 确保其他模态框关闭
       midiSettingsContainer.classList.add('modal-visible'); // 显示MIDI设置模态框
       refreshMidiDevices(); // 刷新MIDI设备列表
+      // 同步蓝牙参数到UI
+      bluetoothBufferSlider.value = midiProps.bluetoothBufferSize;
+      bluetoothBufferInput.value = midiProps.bluetoothBufferSize;
+      bluetoothBufferValue.textContent = midiProps.bluetoothBufferSize;
+      bluetoothDebounceSlider.value = midiProps.bluetoothDebounceTime;
+      bluetoothDebounceInput.value = midiProps.bluetoothDebounceTime;
+      bluetoothDebounceValue.textContent = midiProps.bluetoothDebounceTime;
+      // 更新蓝牙状态显示
+      updateBluetoothStatus();
     }
     
     /**
@@ -3010,8 +3077,58 @@ function updateClefType(type) {
     }
     
     // ======================================================================
-    // 3901-3950: 核心功能函数 - MIDI操作
+    // 3901-3950: 核心功能函数 - MIDI操作（已集成蓝牙）
     // ======================================================================
+    
+    /**
+     * 处理 MIDI 音符事件（通用，有线/蓝牙共用）
+     * @param {Uint8Array} data - MIDI 消息数据
+     * @param {boolean} isBluetooth - 是否来自蓝牙
+     */
+    function processMidiNote(data, isBluetooth = false) {
+      const [command, note, velocity] = data;
+      // 只处理音符开事件
+      if ((command & 0xf0) === 0x90 && velocity > 0) {
+        const pitchName = midiNoteToPitch[note];
+        if (pitchName) {
+          // 更新 MIDI 音符显示
+          midiNoteDisplay.textContent = `${pitchName} (${note})`;
+          midiProps.lastNote = pitchName;
+          
+          // 添加音符到活动集合
+          midiProps.activeNotes.add(note);
+          
+          // 高亮对应的钢琴键
+          highlightPianoKey(pitchName, true);
+          
+          // 如果启用了音符对比，检查是否正确
+          if (midiProps.noteCompare) {
+            const currentNoteName = pitchText.textContent.replace('音名：', '');
+            if (pitchName === currentNoteName) {
+              showFeedback('正确！', true);
+              setTimeout(() => randomMoveNote(), 500);
+            } else {
+              showFeedback('错了！', false);
+            }
+          }
+        }
+      } else if (((command & 0xf0) === 0x80) || (((command & 0xf0) === 0x90) && velocity === 0)) {
+        // 音符关
+        midiProps.activeNotes.delete(note);
+        const pitchName = midiNoteToPitch[note];
+        if (pitchName) {
+          highlightPianoKey(pitchName, false);
+        }
+      }
+    }
+    
+    /**
+     * 处理 MIDI 输入（来自有线）
+     * @param {Event} event - MIDI 事件
+     */
+    function handleMidiMessage(event) {
+      processMidiNote(event.data, false);
+    }
     
     /**
      * 根据音名移动音符到对应的五线谱位置
@@ -3064,57 +3181,8 @@ function updateClefType(type) {
       }
     }
     
-    /**
-     * 处理MIDI输入
-     * @param {Event} event - MIDI事件
-     */
-    function handleMidiMessage(event) {
-      const [command, note, velocity] = event.data; // 解构MIDI数据
-      
-      // 只处理音符开和音符关事件
-      if ((command & 0xf0) === 0x90 && velocity > 0) { // 音符开
-        const pitchName = midiNoteToPitch[note]; // 获取音名
-        if (pitchName) {
-          // 更新MIDI音符显示
-          midiNoteDisplay.textContent = `${pitchName} (${note})`; // 设置MIDI音符显示
-          midiProps.lastNote = pitchName; // 设置最后一个音符
-          
-          // 添加音符到活动集合
-          midiProps.activeNotes.add(note); // 添加到活动音符集合
-          
-          // 高亮对应的钢琴键
-          highlightPianoKey(pitchName, true); // 高亮钢琴键
-          
-          // 如果启用了音符对比，检查是否正确
-          if (midiProps.noteCompare) {
-            const currentNoteName = pitchText.textContent.replace('音名：', ''); // 获取当前音名
-            
-            if (pitchName === currentNoteName) {
-              // 正确
-              showFeedback('正确！', true); // 显示正确反馈
-              setTimeout(() => {
-                randomMoveNote(); // 随机移动音符
-              }, 500); // 延迟500毫秒
-            } else {
-              // 错误
-              showFeedback('错了！', false); // 显示错误反馈
-            }
-          }
-        }
-      } else if ((command & 0xf0) === 0x80 || ((command & 0xf0) === 0x90 && velocity === 0)) { // 音符关
-        // 从活动集合中移除音符
-        midiProps.activeNotes.delete(note); // 从活动音符集合中移除
-        
-        const pitchName = midiNoteToPitch[note]; // 获取音名
-        if (pitchName) {
-          // 取消高亮对应的钢琴键
-          highlightPianoKey(pitchName, false); // 取消高亮钢琴键
-        }
-      }
-    }
-    
     // ======================================================================
-    // 3951-4000: 核心功能函数 - MIDI设备管理
+    // 3951-4000: 核心功能函数 - MIDI设备管理（已集成蓝牙）
     // ======================================================================
     
     /**
@@ -3149,148 +3217,144 @@ function updateClefType(type) {
     }
     
     /**
-     * 刷新MIDI设备列表
+     * 刷新MIDI设备列表（已集成蓝牙）
      */
     function refreshMidiDevices() {
-  if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
-  
-  // 清空设备列表
-  midiDeviceSelect.innerHTML = '<option value="">-- 请选择MIDI设备 --</option>'; // 清空设备选择器
-  midiProps.inputs = []; // 重置输入设备数组
-  
-  // 获取所有MIDI输入设备
-  const inputs = midiProps.access.inputs.values(); // 获取输入设备迭代器
-  const wiredInputs = []; // 有线设备
-  const bluetoothInputs = []; // 蓝牙设备
-  
-  for (const input of inputs) {
-    // 根据设备名称判断是否为蓝牙设备（简单关键字匹配，可根据实际需要扩展）
-    const name = input.name.toLowerCase();
-    const isBluetooth = name.includes('bluetooth') || name.includes('蓝牙');
-    if (isBluetooth) {
-      bluetoothInputs.push(input);
-    } else {
-      wiredInputs.push(input);
+      if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
+      
+      // 清空设备列表
+      midiDeviceSelect.innerHTML = '<option value="">-- 请选择MIDI设备 --</option>'; // 清空设备选择器
+      midiProps.inputs = []; // 重置输入设备数组
+      
+      // 获取所有MIDI输入设备
+      const inputs = midiProps.access.inputs.values(); // 获取输入设备迭代器
+      const wiredInputs = []; // 有线设备
+      const bluetoothInputs = []; // 蓝牙设备（从 midiProps 中获取已有的蓝牙设备）
+      
+      // 如果有蓝牙设备已连接，先加入列表
+      if (midiProps.isBluetoothConnected && midiProps.bluetoothDevice) {
+        bluetoothInputs.push({
+          id: 'bluetooth-midi',
+          name: `蓝牙 MIDI (${midiProps.bluetoothDevice.name || '未知'})`,
+          isBluetooth: true,
+          state: 'connected'
+        });
+      }
+      
+      for (const input of inputs) {
+        // 根据设备名称判断是否为蓝牙设备（简单关键字匹配，可根据实际需要扩展）
+        const name = input.name.toLowerCase();
+        const isBluetooth = name.includes('bluetooth') || name.includes('蓝牙');
+        if (isBluetooth) {
+          bluetoothInputs.push(input);
+        } else {
+          wiredInputs.push(input);
+        }
+      }
+      
+      // 优先有线模式：如果有线设备存在，则只显示有线设备
+      let displayInputs = [];
+      if (midiProps.preferWired && wiredInputs.length > 0) {
+        displayInputs = wiredInputs;
+        console.log('有线设备存在，已过滤蓝牙设备');
+      } else {
+        displayInputs = [...wiredInputs, ...bluetoothInputs]; // 全部显示
+      }
+      
+      // 将设备添加到下拉框，并设置禁用状态
+      for (const input of displayInputs) {
+        midiProps.inputs.push(input); // 添加到输入设备数组
+        const option = document.createElement('option'); // 创建选项元素
+        option.value = input.id; // 设置选项值
+        
+        // 根据是否有线设备存在决定是否禁用蓝牙选项
+        const isBluetooth = input.isBluetooth || bluetoothInputs.includes(input);
+        const disableBluetooth = midiProps.preferWired && wiredInputs.length > 0 && isBluetooth;
+        
+        // 设置选项文本，添加设备类型标识
+        let deviceType = isBluetooth ? ' (蓝牙)' : ' (有线)';
+        option.textContent = input.name + deviceType + (input === midiProps.selectedInput ? ' (当前)' : '');
+        
+        // 如果是蓝牙且有线存在，则禁用该选项
+        if (disableBluetooth) {
+          option.disabled = true;
+        }
+        
+        // 如果是当前选中的设备，设置为选中
+        if (input === midiProps.selectedInput) {
+          option.selected = true;
+        }
+        
+        midiDeviceSelect.appendChild(option); // 添加到设备选择器
+      }
+      
+      // 如果有线设备存在且当前没有选中任何设备，自动选择第一个有线设备
+      if (midiProps.preferWired && wiredInputs.length > 0 && !midiProps.selectedInput) {
+        selectMidiDevice(wiredInputs[0].id);
+      }
+      
+      // 更新设备状态
+      if (midiProps.selectedInput && midiProps.selectedInput.state === 'connected') {
+        midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
+        midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
+      } else {
+        midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
+        midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
+        midiProps.selectedInput = null; // 重置选中的输入设备
+      }
+      
+      updateMidiStatus(); // 更新MIDI状态显示
     }
-  }
-  
-  // 将设备添加到下拉框，并设置禁用状态
-  const allInputs = [...wiredInputs, ...bluetoothInputs];
-  for (const input of allInputs) {
-    midiProps.inputs.push(input); // 添加到输入设备数组
-    const option = document.createElement('option'); // 创建选项元素
-    option.value = input.id; // 设置选项值
-    
-    // 根据是否有线设备存在决定是否禁用蓝牙选项
-    const isBluetooth = bluetoothInputs.includes(input);
-    const disableBluetooth = midiProps.preferWired && wiredInputs.length > 0 && isBluetooth;
-    
-    // 设置选项文本，添加设备类型标识
-    let deviceType = isBluetooth ? ' (蓝牙)' : ' (有线)';
-    option.textContent = input.name + deviceType + (input === midiProps.selectedInput ? ' (当前)' : '');
-    
-    // 如果是蓝牙且有线存在，则禁用该选项
-    if (disableBluetooth) {
-      option.disabled = true;
-    }
-    
-    // 如果是当前选中的设备，设置为选中
-    if (input === midiProps.selectedInput) {
-      option.selected = true;
-    }
-    
-    midiDeviceSelect.appendChild(option); // 添加到设备选择器
-  }
-  
-  // 如果有线设备存在且当前没有选中任何设备，自动选择第一个有线设备
-  if (midiProps.preferWired && wiredInputs.length > 0 && !midiProps.selectedInput) {
-    selectMidiDevice(wiredInputs[0].id);
-  }
-  
-  // 更新设备状态
-  if (midiProps.selectedInput && midiProps.selectedInput.state === 'connected') {
-    midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
-    midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
-  } else {
-    midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
-    midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
-    midiProps.selectedInput = null; // 重置选中的输入设备
-  }
-  
-  // 更新连接模式显示
-  const modeSpan = document.getElementById('midi-connection-mode');
-  if (modeSpan) {
-    if (midiProps.preferWired && wiredInputs.length > 0) {
-      modeSpan.textContent = '有线连接（蓝牙设备已禁用）';
-      modeSpan.style.color = '#10b981';
-    } else if (midiProps.preferWired && wiredInputs.length === 0 && bluetoothInputs.length > 0) {
-      modeSpan.textContent = '蓝牙连接（无线设备）';
-      modeSpan.style.color = '#f59e0b';
-    } else if (!midiProps.preferWired) {
-      modeSpan.textContent = '混合模式（蓝牙/有线均可选）';
-      modeSpan.style.color = '#6b7280';
-    } else {
-      modeSpan.textContent = '无设备';
-      modeSpan.style.color = '#ef4444';
-    }
-  }
-  
-  updateMidiStatus(); // 更新MIDI状态显示
-}
     
     /**
      * 选择MIDI设备
      * @param {string} deviceId - 设备ID
      */
     function selectMidiDevice(deviceId) {
-  if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
-  
-  // 查找要选中的设备
-  const newInput = midiProps.inputs.find(input => input.id === deviceId) || null;
-  
-  // 如果启用了优先有线模式，检查是否可以选中蓝牙设备
-  if (midiProps.preferWired && newInput) {
-    const isBluetooth = newInput.name.toLowerCase().includes('bluetooth') || 
-                        newInput.name.toLowerCase().includes('蓝牙');
-    if (isBluetooth) {
-      // 检查是否存在有线设备
-      const hasWired = midiProps.inputs.some(input => 
-        !(input.name.toLowerCase().includes('bluetooth') || input.name.toLowerCase().includes('蓝牙'))
-      );
-      if (hasWired) {
-        alert('当前有有线MIDI设备已连接，无法选择蓝牙设备。如需使用蓝牙，请先断开有线设备。');
-        return; // 阻止选择
+      if (!midiProps.access) return; // 如果没有MIDI访问权限则返回
+      
+      // 查找要选中的设备
+      const newInput = midiProps.inputs.find(input => input.id === deviceId) || null;
+      
+      // 如果启用了优先有线模式，检查是否可以选中蓝牙设备
+      if (midiProps.preferWired && newInput && newInput.isBluetooth) {
+        // 检查是否存在有线设备
+        const hasWired = midiProps.inputs.some(input => !input.isBluetooth && input.state === 'connected');
+        if (hasWired) {
+          alert('当前有有线MIDI设备已连接，无法选择蓝牙设备。如需使用蓝牙，请先断开有线设备。');
+          return; // 阻止选择
+        }
       }
+      
+      // 取消之前选中的设备监听
+      if (midiProps.selectedInput) {
+        midiProps.selectedInput.onmidimessage = null; // 移除MIDI消息监听
+      }
+      
+      // 选择新设备
+      midiProps.selectedInput = newInput;
+      
+      if (midiProps.selectedInput) {
+        // 设置新设备的监听（如果是蓝牙设备，无需设置 onmidimessage，因为蓝牙由 characteristic 处理）
+        if (!midiProps.selectedInput.isBluetooth) {
+          midiProps.selectedInput.onmidimessage = handleMidiMessage; // 设置MIDI消息监听
+        }
+        console.log(`已选择MIDI设备: ${midiProps.selectedInput.name}`); // 输出选择信息
+        
+        // 更新设备状态
+        midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
+        midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
+      } else {
+        // 更新设备状态
+        midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
+        midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
+      }
+      
+      // 刷新下拉框显示（更新选中状态和名称后缀）
+      refreshMidiDevices(); // 重新生成选项，以反映当前选中状态
+      
+      updateMidiStatus(); // 更新MIDI状态显示
     }
-  }
-  
-  // 取消之前选中的设备监听
-  if (midiProps.selectedInput) {
-    midiProps.selectedInput.onmidimessage = null; // 移除MIDI消息监听
-  }
-  
-  // 选择新设备
-  midiProps.selectedInput = newInput;
-  
-  if (midiProps.selectedInput) {
-    // 设置新设备的监听
-    midiProps.selectedInput.onmidimessage = handleMidiMessage; // 设置MIDI消息监听
-    console.log(`已选择MIDI设备: ${midiProps.selectedInput.name}`); // 输出选择信息
-    
-    // 更新设备状态
-    midiDeviceStatus.textContent = '已连接'; // 设置设备状态文本
-    midiDeviceStatus.className = 'text-sm font-mono midi-connected'; // 设置设备状态类
-  } else {
-    // 更新设备状态
-    midiDeviceStatus.textContent = '未连接'; // 设置设备状态文本
-    midiDeviceStatus.className = 'text-sm font-mono midi-disconnected'; // 设置设备状态类
-  }
-  
-  // 刷新下拉框显示（更新选中状态和名称后缀）
-  refreshMidiDevices(); // 重新生成选项，以反映当前选中状态
-  
-  updateMidiStatus(); // 更新MIDI状态显示
-}
     
     /**
      * 启用/禁用MIDI输入
@@ -3326,7 +3390,213 @@ function updateClefType(type) {
     }
     
     // ======================================================================
-    // 4001-4050: 核心功能函数 - 值显示更新
+    // 4001-4050: 蓝牙 MIDI 相关函数（新增）
+    // ======================================================================
+    
+    /**
+     * 连接蓝牙 MIDI 设备
+     */
+    async function connectBluetoothMidi() {
+      // 如果有线设备已连接，阻止蓝牙连接
+      if (midiProps.preferWired && midiProps.inputs.some(input => !input.isBluetooth && input.state === 'connected')) {
+        alert('当前有有线 MIDI 设备已连接，无法使用蓝牙 MIDI。请先断开有线设备。');
+        return;
+      }
+      
+      try {
+        if (!navigator.bluetooth) {
+          alert('您的浏览器不支持蓝牙功能，请使用 Chrome、Edge 或 Opera 浏览器。');
+          return;
+        }
+        
+        updateBluetoothStatus('正在搜索设备...', 'text-yellow-600');
+        
+        // 请求蓝牙设备（使用 MIDI 标准服务 UUID）
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{
+            services: ['03b80e5a-ede8-4b33-a751-6ce34ec4c700'] // MIDI 服务 UUID
+          }],
+          optionalServices: ['battery_service']
+        });
+        
+        updateBluetoothStatus('正在连接...', 'text-yellow-600');
+        
+        // 连接 GATT 服务器
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService('03b80e5a-ede8-4b33-a751-6ce34ec4c700');
+        const characteristic = await service.getCharacteristic('7772e5db-3868-4112-a1a9-f2669d106bf3'); // MIDI 数据特征
+        
+        // 保存引用
+        midiProps.bluetoothDevice = device;
+        midiProps.bluetoothCharacteristic = characteristic;
+        midiProps.isBluetoothConnected = true;
+        
+        // 监听 MIDI 消息
+        characteristic.addEventListener('characteristicvaluechanged', handleBluetoothMidiMessage);
+        await characteristic.startNotifications();
+        
+        // 监听断开连接事件
+        device.addEventListener('gattserverdisconnected', handleBluetoothDisconnect);
+        
+        // 更新 UI
+        updateBluetoothStatus(`已连接: ${device.name || '未知设备'}`, 'text-green-600');
+        connectBluetoothMidiBtn.disabled = true;
+        disconnectBluetoothMidiBtn.disabled = false;
+        
+        // 将蓝牙设备添加到 MIDI 输入列表（作为虚拟输入）
+        const bluetoothInput = {
+          id: 'bluetooth-midi',
+          name: `蓝牙 MIDI (${device.name || '未知'})`,
+          isBluetooth: true,
+          state: 'connected',
+          onmidimessage: null // 实际消息由 characteristic 处理
+        };
+        midiProps.inputs.push(bluetoothInput);
+        
+        // 如果有线设备不存在，自动选中蓝牙设备
+        const hasWired = midiProps.inputs.some(input => !input.isBluetooth && input.state === 'connected');
+        if (!hasWired) {
+          selectMidiDevice('bluetooth-midi');
+        }
+        
+        // 刷新 MIDI 设备下拉框
+        refreshMidiDevices();
+        
+        console.log('蓝牙 MIDI 连接成功:', device.name);
+      } catch (error) {
+        console.error('蓝牙 MIDI 连接失败:', error);
+        if (error.name !== 'NotFoundError') {
+          alert('蓝牙 MIDI 连接失败: ' + error.message);
+        }
+        updateBluetoothStatus('连接失败', 'text-red-600');
+      }
+    }
+    
+    /**
+     * 断开蓝牙 MIDI 连接
+     */
+    function disconnectBluetoothMidi() {
+      if (midiProps.bluetoothDevice && midiProps.bluetoothDevice.gatt.connected) {
+        midiProps.bluetoothDevice.gatt.disconnect();
+      }
+      handleBluetoothDisconnect();
+    }
+    
+    /**
+     * 处理蓝牙设备断开
+     */
+    function handleBluetoothDisconnect() {
+      midiProps.isBluetoothConnected = false;
+      midiProps.bluetoothDevice = null;
+      midiProps.bluetoothCharacteristic = null;
+      midiProps.bluetoothMessageBuffer = [];
+      midiProps.bluetoothProcessing = false;
+      
+      // 从 inputs 中移除蓝牙设备
+      midiProps.inputs = midiProps.inputs.filter(input => !input.isBluetooth);
+      
+      // 如果当前选中的是蓝牙设备，清空选中
+      if (midiProps.selectedInput && midiProps.selectedInput.isBluetooth) {
+        midiProps.selectedInput = null;
+        midiDeviceStatus.textContent = '未连接';
+        midiDeviceStatus.className = 'text-sm font-mono midi-disconnected';
+      }
+      
+      // 更新 UI
+      updateBluetoothStatus('未连接', 'text-gray-400');
+      connectBluetoothMidiBtn.disabled = false;
+      disconnectBluetoothMidiBtn.disabled = true;
+      
+      // 刷新下拉框
+      refreshMidiDevices();
+      
+      // 如果之前因有线而禁用了蓝牙按钮，现在有线可能已断开，重新检查
+      const hasWired = midiProps.inputs.some(input => !input.isBluetooth && input.state === 'connected');
+      if (!hasWired) {
+        connectBluetoothMidiBtn.disabled = false;
+      }
+      
+      console.log('蓝牙 MIDI 已断开');
+    }
+    
+    /**
+     * 处理蓝牙 MIDI 消息（来自 characteristic）
+     */
+    function handleBluetoothMidiMessage(event) {
+      const value = event.target.value;
+      const data = new Uint8Array(value.buffer);
+      const currentTime = Date.now();
+      
+      // 去抖动：忽略过于频繁的消息
+      if (currentTime - midiProps.lastBluetoothMessageTime < midiProps.bluetoothDebounceTime) {
+        return;
+      }
+      midiProps.lastBluetoothMessageTime = currentTime;
+      
+      // 将消息加入缓冲区
+      midiProps.bluetoothMessageBuffer.push({
+        data: data,
+        timestamp: currentTime
+      });
+      
+      // 限制缓冲区大小
+      if (midiProps.bluetoothMessageBuffer.length > midiProps.bluetoothBufferSize) {
+        midiProps.bluetoothMessageBuffer.shift();
+      }
+      
+      // 启动处理（如果尚未处理）
+      if (!midiProps.bluetoothProcessing) {
+        processBluetoothMessageBuffer();
+      }
+    }
+    
+    /**
+     * 处理蓝牙消息缓冲区
+     */
+    async function processBluetoothMessageBuffer() {
+      if (midiProps.bluetoothProcessing || midiProps.bluetoothMessageBuffer.length === 0) return;
+      
+      midiProps.bluetoothProcessing = true;
+      
+      try {
+        while (midiProps.bluetoothMessageBuffer.length > 0) {
+          const msg = midiProps.bluetoothMessageBuffer.shift();
+          const data = msg.data;
+          
+          // 解析 MIDI 消息，这里简化为检查音符按下
+          if (data.length >= 3 && (data[0] & 0xF0) === 0x90 && data[2] > 0) {
+            // 调用通用的音符处理函数，标记为蓝牙输入
+            processMidiNote(data, true);
+          }
+          
+          // 添加小延迟避免阻塞 UI
+          await new Promise(resolve => setTimeout(resolve, 5));
+        }
+      } catch (error) {
+        console.error('处理蓝牙消息时出错:', error);
+      } finally {
+        midiProps.bluetoothProcessing = false;
+        // 如果缓冲区还有消息，继续处理
+        if (midiProps.bluetoothMessageBuffer.length > 0) {
+          setTimeout(processBluetoothMessageBuffer, 10);
+        }
+      }
+    }
+    
+    /**
+     * 更新蓝牙状态显示
+     * @param {string} text - 状态文本
+     * @param {string} colorClass - 颜色类名
+     */
+    function updateBluetoothStatus(text, colorClass) {
+      if (bluetoothMidiStatus) {
+        bluetoothMidiStatus.textContent = text || (midiProps.isBluetoothConnected ? '已连接' : '未连接');
+        bluetoothMidiStatus.className = `text-sm font-mono ${colorClass || (midiProps.isBluetoothConnected ? 'text-green-600' : 'text-gray-400')}`;
+      }
+    }
+    
+    // ======================================================================
+    // 4051-4100: 核心功能函数 - 值显示更新
     // ======================================================================
     
     /**
@@ -3389,8 +3659,20 @@ function updateClefType(type) {
       blackKeyFontSizeInput.value = blackKeyFontSizeSlider.value; // 更新黑键字体大小输入框
     }
     
+    /**
+     * 更新显示的蓝牙参数值
+     */
+    function updateBluetoothValueDisplay() {
+      bluetoothBufferValue.textContent = bluetoothBufferSlider.value;
+      bluetoothBufferInput.value = bluetoothBufferSlider.value;
+      bluetoothDebounceValue.textContent = bluetoothDebounceSlider.value;
+      bluetoothDebounceInput.value = bluetoothDebounceSlider.value;
+      midiProps.bluetoothBufferSize = parseInt(bluetoothBufferSlider.value);
+      midiProps.bluetoothDebounceTime = parseInt(bluetoothDebounceSlider.value);
+    }
+    
     // ======================================================================
-    // 4051-4100: 核心功能函数 - 滑块和输入框同步
+    // 4101-4150: 核心功能函数 - 滑块和输入框同步
     // ======================================================================
     
     /**
@@ -3428,6 +3710,8 @@ function updateClefType(type) {
         } else if (updateFunction === updateClefValueDisplay) {
           clefProps.size = parseFloat(clefSizeSlider.value); // 设置谱号大小
           drawLines(); // 重绘画布
+        } else if (updateFunction === updateBluetoothValueDisplay) {
+          // 蓝牙参数更新，无需重绘
         } else {
           drawLines(); // 重绘画布
         }
@@ -3463,6 +3747,8 @@ function updateClefType(type) {
         } else if (updateFunction === updateClefValueDisplay) {
           clefProps.size = parseFloat(clefSizeInput.value); // 设置谱号大小
           drawLines(); // 重绘画布
+        } else if (updateFunction === updateBluetoothValueDisplay) {
+          // 蓝牙参数更新，无需重绘
         } else {
           drawLines(); // 重绘画布
         }
@@ -3498,6 +3784,8 @@ function updateClefType(type) {
         } else if (updateFunction === updateClefValueDisplay) {
           clefProps.size = parseFloat(clefSizeInput.value); // 设置谱号大小
           drawLines(); // 重绘画布
+        } else if (updateFunction === updateBluetoothValueDisplay) {
+          // 蓝牙参数更新，无需重绘
         } else {
           drawLines(); // 重绘画布
         }
@@ -3505,7 +3793,7 @@ function updateClefType(type) {
     }
     
     // ======================================================================
-    // 4101-4150: 事件监听器设置 - 线条设置
+    // 4151-4200: 事件监听器设置 - 线条设置
     // ======================================================================
     
     // 设置线条设置的滑块和输入框同步
@@ -3533,8 +3821,12 @@ function updateClefType(type) {
     setupSliderInputSync(whiteKeyFontSizeSlider, whiteKeyFontSizeInput, 6, 20, updatePianoValueDisplay); // 白键字体大小同步
     setupSliderInputSync(blackKeyFontSizeSlider, blackKeyFontSizeInput, 6, 16, updatePianoValueDisplay); // 黑键字体大小同步
     
+    // 设置蓝牙参数同步
+    setupSliderInputSync(bluetoothBufferSlider, bluetoothBufferInput, 1, 10, updateBluetoothValueDisplay);
+    setupSliderInputSync(bluetoothDebounceSlider, bluetoothDebounceInput, 0, 100, updateBluetoothValueDisplay);
+    
     // ======================================================================
-    // 4151-4200: 事件监听器设置 - 其他设置
+    // 4201-4250: 事件监听器设置 - 其他设置
     // ======================================================================
     
     // 其他事件监听
@@ -3607,7 +3899,7 @@ function updateClefType(type) {
     });
     
     // ======================================================================
-    // 4201-4250: 事件监听器设置 - 钢琴设置
+    // 4251-4300: 事件监听器设置 - 钢琴设置
     // ======================================================================
     
     showPianoCheckbox.addEventListener('change', () => {
@@ -3684,7 +3976,7 @@ function updateClefType(type) {
     });
     
     // ======================================================================
-    // 4251-4300: 事件监听器设置 - MIDI设置
+    // 4301-4350: 事件监听器设置 - MIDI设置（已集成蓝牙）
     // ======================================================================
     
     // MIDI设置事件监听
@@ -3704,8 +3996,12 @@ function updateClefType(type) {
       refreshMidiDevices(); // 刷新MIDI设备
     });
     
+    // 蓝牙MIDI按钮事件
+    connectBluetoothMidiBtn.addEventListener('click', connectBluetoothMidi);
+    disconnectBluetoothMidiBtn.addEventListener('click', disconnectBluetoothMidi);
+    
     // ======================================================================
-    // 4301-4350: 事件监听器设置 - 不重复随机设置
+    // 4351-4400: 事件监听器设置 - 不重复随机设置
     // ======================================================================
     
     // 不重复随机数量变化事件
@@ -3772,66 +4068,64 @@ function updateClefType(type) {
     });
     
     // ======================================================================
-    // 4351-4400: 事件监听器设置 - 随机范围设置
+    // 4401-4450: 事件监听器设置 - 随机范围设置
     // ======================================================================
     
     // 随机范围变化时更新不重复随机数量的最大值
     minPositionSelect.addEventListener('change', () => {
-  // 修改：minPositionSelect 实际对应最高位置，应该更新 maxIndex
-  randomRangeProps.maxIndex = parseInt(minPositionSelect.value); // 设置最高索引
-  updateNonRepeatMaxCount(); // 更新不重复最大数量
-  setNonRepeatToMax(); // 设置不重复数量为最大值
-  
-  // 重新初始化历史记录
-  if (nonRepeatProps.count > 0) {
-    // 获取当前音符的位置索引
-    const basePosition = parseInt(positionSlider.value); // 获取基准位置
-    const spacing = parseInt(spacingSlider.value); // 获取线间距
-    const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
-    const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
+      randomRangeProps.minIndex = parseInt(minPositionSelect.value); // 设置最小索引
+      updateNonRepeatMaxCount(); // 更新不重复最大数量
+      setNonRepeatToMax(); // 设置不重复数量为最大值
+      
+      // 重新初始化历史记录
+      if (nonRepeatProps.count > 0) {
+        // 获取当前音符的位置索引
+        const basePosition = parseInt(positionSlider.value); // 获取基准位置
+        const spacing = parseInt(spacingSlider.value); // 获取线间距
+        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
+        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
+        
+        // 如果当前索引在范围内，记录它
+        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
+        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
+        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+          nonRepeatProps.history = [currentIndex]; // 设置历史记录
+        } else {
+          nonRepeatProps.history = []; // 清空历史记录
+        }
+      }
+      updateNonRepeatHistoryDisplay(); // 更新历史记录显示
+      randomMoveNote(); // 设置后立即执行一次随机
+    });
     
-    // 如果当前索引在范围内，记录它
-    const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
-    const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
-    if (currentIndex >= minIndex && currentIndex <= maxIndex) {
-      nonRepeatProps.history = [currentIndex]; // 设置历史记录
-    } else {
-      nonRepeatProps.history = []; // 清空历史记录
-    }
-  }
-  updateNonRepeatHistoryDisplay(); // 更新历史记录显示
-  randomMoveNote(); // 设置后立即执行一次随机
-});
-
-maxPositionSelect.addEventListener('change', () => {
-  // 修改：maxPositionSelect 实际对应最低位置，应该更新 minIndex
-  randomRangeProps.minIndex = parseInt(maxPositionSelect.value); // 设置最低索引
-  updateNonRepeatMaxCount(); // 更新不重复最大数量
-  setNonRepeatToMax(); // 设置不重复数量为最大值
-  
-  // 重新初始化历史记录
-  if (nonRepeatProps.count > 0) {
-    // 获取当前音符的位置索引
-    const basePosition = parseInt(positionSlider.value); // 获取基准位置
-    const spacing = parseInt(spacingSlider.value); // 获取线间距
-    const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
-    const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
-    
-    // 如果当前索引在范围内，记录它
-    const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
-    const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
-    if (currentIndex >= minIndex && currentIndex <= maxIndex) {
-      nonRepeatProps.history = [currentIndex]; // 设置历史记录
-    } else {
-      nonRepeatProps.history = []; // 清空历史记录
-    }
-  }
-  updateNonRepeatHistoryDisplay(); // 更新历史记录显示
-  randomMoveNote(); // 设置后立即执行一次随机
-});
+    maxPositionSelect.addEventListener('change', () => {
+      randomRangeProps.maxIndex = parseInt(maxPositionSelect.value); // 设置最大索引
+      updateNonRepeatMaxCount(); // 更新不重复最大数量
+      setNonRepeatToMax(); // 设置不重复数量为最大值
+      
+      // 重新初始化历史记录
+      if (nonRepeatProps.count > 0) {
+        // 获取当前音符的位置索引
+        const basePosition = parseInt(positionSlider.value); // 获取基准位置
+        const spacing = parseInt(spacingSlider.value); // 获取线间距
+        const currentY = noteProps.y + (noteProps.height * (noteProps.size / 100)) / 2; // 计算当前Y坐标
+        const currentIndex = Math.round((basePosition - currentY) / (spacing / 2)); // 计算当前索引
+        
+        // 如果当前索引在范围内，记录它
+        const minIndex = Math.min(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最小索引
+        const maxIndex = Math.max(randomRangeProps.minIndex, randomRangeProps.maxIndex); // 计算最大索引
+        if (currentIndex >= minIndex && currentIndex <= maxIndex) {
+          nonRepeatProps.history = [currentIndex]; // 设置历史记录
+        } else {
+          nonRepeatProps.history = []; // 清空历史记录
+        }
+      }
+      updateNonRepeatHistoryDisplay(); // 更新历史记录显示
+      randomMoveNote(); // 设置后立即执行一次随机
+    });
     
     // ======================================================================
-    // 4401-4450: 事件监听器设置 - 谱号类型选择
+    // 4451-4500: 事件监听器设置 - 谱号类型选择
     // ======================================================================
     
     // 谱号类型选择事件
@@ -3842,7 +4136,7 @@ maxPositionSelect.addEventListener('change', () => {
     });
     
     // ======================================================================
-    // 4451-4500: 核心功能函数 - 拖拽操作
+    // 4501-4550: 核心功能函数 - 拖拽操作
     // ======================================================================
     
     /**
@@ -4164,7 +4458,7 @@ maxPositionSelect.addEventListener('change', () => {
     }
     
     // ======================================================================
-    // 4501-4550: 核心功能函数 - 钢琴位置更新
+    // 4551-4600: 核心功能函数 - 钢琴位置更新
     // ======================================================================
     
     /**
@@ -4206,7 +4500,7 @@ maxPositionSelect.addEventListener('change', () => {
     }
     
     // ======================================================================
-    // 4551-4600: 事件监听器绑定 - 鼠标和触摸事件
+    // 4601-4650: 事件监听器绑定 - 鼠标和触摸事件
     // ======================================================================
     
     // 绑定鼠标事件
@@ -4222,7 +4516,7 @@ maxPositionSelect.addEventListener('change', () => {
     canvas.addEventListener('touchcancel', handleDrag, { passive: false }); // 触摸取消事件
     
     // ======================================================================
-    // 4601-4650: 随机按钮拖拽功能
+    // 4651-4700: 随机按钮拖拽功能
     // ======================================================================
     
     let randomBtnProps = {
@@ -4320,7 +4614,7 @@ maxPositionSelect.addEventListener('change', () => {
     }
     
     // ======================================================================
-    // 4651-4700: 重置按钮事件
+    // 4701-4750: 重置按钮事件
     // ======================================================================
     
     // 重置按钮事件
@@ -4420,38 +4714,35 @@ maxPositionSelect.addEventListener('change', () => {
     });
     
     randomRangeResetBtn.addEventListener('click', () => {
-  // 根据当前谱号类型重置随机范围
-  if (clefProps.type === CLEF_TYPES.TREBLE) {
-    // 高音谱号：最高第二线（2），最低下加一线（-2）
-    // 修改：minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
-    minPositionSelect.value = '2'; // 重置最高位置
-    maxPositionSelect.value = '-2'; // 重置最低位置
-    randomRangeProps.maxIndex = 2; // 设置最高索引
-    randomRangeProps.minIndex = -2; // 设置最低索引
-  } else {
-    // 低音谱号：最高上加一线（10），最低第四线（6）
-    // 修改：minPositionSelect 对应最高位置，maxPositionSelect 对应最低位置
-    minPositionSelect.value = '10'; // 重置最高位置
-    maxPositionSelect.value = '6'; // 重置最低位置
-    randomRangeProps.maxIndex = 10; // 设置最高索引
-    randomRangeProps.minIndex = 6; // 设置最低索引
-  }
-  
-  // 重置不重复随机数量
-  // 修改：将不重复随机数量设置为当前范围的最大值，而不是0
-  updateNonRepeatMaxCount(); // 先更新最大值
-  setNonRepeatToMax(); // 设置不重复数量为最大值
-  
-  // 清空历史记录
-  nonRepeatProps.history = []; // 清空历史记录
-  
-  updateNonRepeatValueDisplay(); // 更新值显示
-  updateNonRepeatHistoryDisplay(); // 更新历史记录显示
-  randomMoveNote(); // 重置后立即执行一次随机
-});
+      // 根据当前谱号类型重置随机范围
+      if (clefProps.type === CLEF_TYPES.TREBLE) {
+        // 高音谱号：最低下加一线（-2），最高第二线（2）
+        minPositionSelect.value = '-2'; // 重置最小位置
+        maxPositionSelect.value = '2'; // 重置最大位置
+        randomRangeProps.minIndex = -2; // 设置最小索引
+        randomRangeProps.maxIndex = 2; // 设置最大索引
+      } else {
+        // 低音谱号：最低第四线（6），最高上加一线（10）
+        minPositionSelect.value = '6'; // 重置最小位置
+        maxPositionSelect.value = '10'; // 重置最大位置
+        randomRangeProps.minIndex = 6; // 设置最小索引
+        randomRangeProps.maxIndex = 10; // 设置最大索引
+      }
+      
+      // 重置不重复随机数量为当前范围的最大值
+      updateNonRepeatMaxCount(); // 先更新最大值
+      setNonRepeatToMax(); // 设置不重复数量为最大值
+      
+      // 清空历史记录
+      nonRepeatProps.history = []; // 清空历史记录
+      
+      updateNonRepeatValueDisplay(); // 更新值显示
+      updateNonRepeatHistoryDisplay(); // 更新历史记录显示
+      randomMoveNote(); // 重置后立即执行一次随机
+    });
     
     // ======================================================================
-    // 4701-4750: 主事件监听器绑定
+    // 4751-4800: 主事件监听器绑定
     // ======================================================================
     
     // 绑定设置按钮点击事件
@@ -4481,40 +4772,55 @@ maxPositionSelect.addEventListener('change', () => {
     });
     
     // ======================================================================
-    // 4751-4800: 初始化函数调用
+    // 4801-4850: 初始化函数调用
     // ======================================================================
     
     // 初始化显示值
-updateLinesValueDisplay(); // 更新线条值显示
-updateClefValueDisplay(); // 更新谱号值显示
-updateNoteValueDisplay(); // 更新全音符值显示
-updateTextValueDisplay(); // 更新文本值显示
-updatePianoValueDisplay(); // 更新钢琴值显示
-updateNonRepeatValueDisplay(); // 更新不重复值显示
-
-// 初始化不重复随机数量的最大值
-updateNonRepeatMaxCount(); // 更新不重复最大数量
-
-// 初始绘制
-drawLines(); // 绘制五线谱
-drawPiano(); // 绘制钢琴
-updatePositionDisplayStyle(); // 更新位置显示样式
-updateRandomButtonDisplay(); // 更新随机按钮显示
-updateNonRepeatHistoryDisplay(); // 更新历史记录显示
-updatePianoPosition(); // 更新钢琴位置
-updateMidiStatus(); // 更新MIDI状态
-
-// 初始化随机范围选择框
-updateClefType(clefProps.type); // 根据当前谱号类型初始化随机范围
-
-// 页面加载时获取设置数据
-window.addEventListener('load', () => {
-  // 初始化完成后可以加载保存的设置
-  console.log('五线谱绘制工具已加载完成'); // 输出完成信息
-  
-  // 设置不重复随机数量为当前范围最大值
-  setNonRepeatToMax(); // 设置不重复数量为最大值
-});
+    updateLinesValueDisplay(); // 更新线条值显示
+    updateClefValueDisplay(); // 更新谱号值显示
+    updateNoteValueDisplay(); // 更新全音符值显示
+    updateTextValueDisplay(); // 更新文本值显示
+    updatePianoValueDisplay(); // 更新钢琴值显示
+    updateNonRepeatValueDisplay(); // 更新不重复值显示
+    updateBluetoothValueDisplay(); // 更新蓝牙值显示
+    
+    // 初始化不重复随机数量的最大值
+    updateNonRepeatMaxCount(); // 更新不重复最大数量
+    
+    // 初始绘制
+    drawLines(); // 绘制五线谱
+    drawPiano(); // 绘制钢琴
+    updatePositionDisplayStyle(); // 更新位置显示样式
+    updateRandomButtonDisplay(); // 更新随机按钮显示
+    updateNonRepeatHistoryDisplay(); // 更新历史记录显示
+    updatePianoPosition(); // 更新钢琴位置
+    updateMidiStatus(); // 更新MIDI状态
+    updateBluetoothStatus(); // 更新蓝牙状态
+    
+    // 初始化随机范围选择框
+    updateClefType(clefProps.type); // 根据当前谱号类型初始化随机范围
+    
+    // 页面加载时获取设置数据
+    window.addEventListener('load', () => {
+      // 初始化完成后可以加载保存的设置
+      console.log('五线谱绘制工具已加载完成（蓝牙MIDI集成版）'); // 输出完成信息
+      
+      // 设置不重复随机数量为当前范围最大值
+      setNonRepeatToMax(); // 设置不重复数量为最大值
+      
+      // 检查蓝牙兼容性
+      if (!navigator.bluetooth) {
+        connectBluetoothMidiBtn.disabled = true;
+        connectBluetoothMidiBtn.title = '您的浏览器不支持蓝牙功能';
+      }
+    });
+    
+    // 页面关闭时断开蓝牙
+    window.addEventListener('beforeunload', function() {
+      if (midiProps.isBluetoothConnected && midiProps.bluetoothDevice) {
+        midiProps.bluetoothDevice.gatt.disconnect();
+      }
+    });
   </script>
 </body>
 </html>
