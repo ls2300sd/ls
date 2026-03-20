@@ -4,7 +4,7 @@
   <!-- 1-10: 基础HTML结构和元数据 -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>五线谱绘制工具 - 钢琴键盘版 (集成蓝牙MIDI)</title>
+  <title>五线谱绘制工具 - 钢琴键盘版 (蓝牙MIDI修复版)</title>
   
   <!-- 11-15: 外部资源引入 -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -537,7 +537,7 @@
       <nav class="flex items-center justify-between h-16 px-4">
         <div class="flex items-center">
           <i class="fa fa-music text-blue-600 text-xl mr-2"></i>
-          <span class="font-bold text-gray-800 text-lg truncate">五线谱绘制工具 - 钢琴键盘版 (蓝牙MIDI)</span>
+          <span class="font-bold text-gray-800 text-lg truncate">五线谱绘制工具 - 钢琴键盘版 (蓝牙MIDI修复版)</span>
         </div>
         
         <div class="flex items-center space-x-1 relative">
@@ -600,7 +600,7 @@
       鼠标位置: <span id="mouse-position-text">(0, 0)</span>
     </div>
     
-    <!-- MIDI状态显示 -->
+    <!-- MIDI状态显示 (将动态显示设备类型和名称) -->
     <div id="midi-status" class="midi-status midi-disconnected">
       <i class="fa fa-plug mr-2"></i>
       <span id="midi-status-text">MIDI设备未连接</span>
@@ -1293,6 +1293,7 @@
             type="checkbox" 
             id="enable-midi-input" 
             class="w-5 h-5 accent-blue-600"
+            checked
           >
         </div>
         
@@ -1801,9 +1802,9 @@
       initialDistance: null    // 双指初始距离
     };
     
-    // MIDI设备属性对象（已集成蓝牙）
+    // MIDI设备属性对象（已集成蓝牙，并增加启用标志）
     let midiProps = {
-      enabled: false,          // 是否启用MIDI输入
+      enabled: true,           // 是否启用MIDI输入（默认启用）
       access: null,            // MIDI访问对象
       inputs: [],              // MIDI输入设备列表
       selectedInput: null,     // 选中的MIDI输入设备
@@ -2582,17 +2583,29 @@
     }
     
     /**
-     * 更新MIDI状态显示
+     * 更新MIDI状态显示（区分有线/蓝牙）
      */
     function updateMidiStatus() {
-      if (midiProps.enabled && midiProps.selectedInput) {
-        midiStatus.classList.remove('midi-disconnected'); // 移除断开连接类
-        midiStatus.classList.add('midi-connected'); // 添加已连接类
-        midiStatusText.textContent = 'MIDI设备已连接'; // 设置状态文本
+      if (!midiProps.enabled) {
+        midiStatus.classList.remove('midi-connected');
+        midiStatus.classList.add('midi-disconnected');
+        midiStatusText.textContent = 'MIDI输入未启用';
+        return;
+      }
+      
+      if (midiProps.selectedInput) {
+        midiStatus.classList.remove('midi-disconnected');
+        midiStatus.classList.add('midi-connected');
+        // 根据设备类型显示不同文本
+        if (midiProps.selectedInput.isBluetooth) {
+          midiStatusText.textContent = `蓝牙MIDI已连接: ${midiProps.selectedInput.name}`;
+        } else {
+          midiStatusText.textContent = `有线MIDI已连接: ${midiProps.selectedInput.name}`;
+        }
       } else {
-        midiStatus.classList.remove('midi-connected'); // 移除已连接类
-        midiStatus.classList.add('midi-disconnected'); // 添加断开连接类
-        midiStatusText.textContent = 'MIDI设备未连接'; // 设置状态文本
+        midiStatus.classList.remove('midi-connected');
+        midiStatus.classList.add('midi-disconnected');
+        midiStatusText.textContent = '未选择MIDI设备';
       }
     }
     
@@ -3086,6 +3099,15 @@
      * @param {boolean} isBluetooth - 是否来自蓝牙
      */
     function processMidiNote(data, isBluetooth = false) {
+      // 如果 MIDI 输入未启用，忽略所有消息
+      if (!midiProps.enabled) {
+        console.log('MIDI输入未启用，忽略消息');
+        return;
+      }
+      
+      // 可选调试日志，可取消注释以验证信号
+      // console.log('收到MIDI消息:', Array.from(data), '来自蓝牙:', isBluetooth);
+      
       const [command, note, velocity] = data;
       // 只处理音符开事件
       if ((command & 0xf0) === 0x90 && velocity > 0) {
@@ -3353,7 +3375,7 @@
       // 刷新下拉框显示（更新选中状态和名称后缀）
       refreshMidiDevices(); // 重新生成选项，以反映当前选中状态
       
-      updateMidiStatus(); // 更新MIDI状态显示
+      updateMidiStatus(); // 更新全局MIDI状态显示
     }
     
     /**
@@ -3390,7 +3412,7 @@
     }
     
     // ======================================================================
-    // 4001-4050: 蓝牙 MIDI 相关函数（新增）
+    // 4001-4050: 蓝牙 MIDI 相关函数（修复版）
     // ======================================================================
     
     /**
@@ -3448,19 +3470,29 @@
           id: 'bluetooth-midi',
           name: `蓝牙 MIDI (${device.name || '未知'})`,
           isBluetooth: true,
-          state: 'connected',
-          onmidimessage: null // 实际消息由 characteristic 处理
+          state: 'connected'
         };
         midiProps.inputs.push(bluetoothInput);
         
         // 如果有线设备不存在，自动选中蓝牙设备
         const hasWired = midiProps.inputs.some(input => !input.isBluetooth && input.state === 'connected');
         if (!hasWired) {
-          selectMidiDevice('bluetooth-midi');
+          // 直接选中蓝牙设备，并更新状态
+          midiProps.selectedInput = bluetoothInput;
+          midiDeviceStatus.textContent = '已连接';
+          midiDeviceStatus.className = 'text-sm font-mono midi-connected';
+          // 更新全局 MIDI 状态显示
+          updateMidiStatus();
         }
         
         // 刷新 MIDI 设备下拉框
         refreshMidiDevices();
+        
+        // 确保 MIDI 输入已启用
+        if (!midiProps.enabled) {
+          midiProps.enabled = true;
+          enableMidiInputCheckbox.checked = true;
+        }
         
         console.log('蓝牙 MIDI 连接成功:', device.name);
       } catch (error) {
@@ -3510,11 +3542,8 @@
       // 刷新下拉框
       refreshMidiDevices();
       
-      // 如果之前因有线而禁用了蓝牙按钮，现在有线可能已断开，重新检查
-      const hasWired = midiProps.inputs.some(input => !input.isBluetooth && input.state === 'connected');
-      if (!hasWired) {
-        connectBluetoothMidiBtn.disabled = false;
-      }
+      // 更新全局 MIDI 状态
+      updateMidiStatus();
       
       console.log('蓝牙 MIDI 已断开');
     }
@@ -4802,11 +4831,12 @@
     
     // 页面加载时获取设置数据
     window.addEventListener('load', () => {
-      // 初始化完成后可以加载保存的设置
-      console.log('五线谱绘制工具已加载完成（蓝牙MIDI集成版）'); // 输出完成信息
+      console.log('五线谱绘制工具已加载完成（蓝牙MIDI修复版）');
+      setNonRepeatToMax();
       
-      // 设置不重复随机数量为当前范围最大值
-      setNonRepeatToMax(); // 设置不重复数量为最大值
+      // 默认启用MIDI输入
+      enableMidiInputCheckbox.checked = true;
+      midiProps.enabled = true;
       
       // 检查蓝牙兼容性
       if (!navigator.bluetooth) {
