@@ -3,540 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蓝牙MIDI钢琴音名显示器 · 88键</title>
+    <title>蓝牙MIDI钢琴音名显示器 · 增强版</title>
     <style>
-        * {
-            box-sizing: border-box;
-            font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-        }
-        body {
-            background: linear-gradient(145deg, #2b3a4a 0%, #1d2a35 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 0;
-            padding: 16px;
-        }
-        .card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-radius: 40px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.2);
-            padding: 28px 24px;
-            width: 100%;
-            max-width: 750px;
-            border: 1px solid rgba(255,255,255,0.2);
-            transition: all 0.2s;
-        }
-        h1 {
-            color: #f2e9d0;
-            text-align: center;
-            font-weight: 500;
-            font-size: 2rem;
-            margin-top: 0;
-            margin-bottom: 12px;
-            letter-spacing: 2px;
-            text-shadow: 0 4px 8px #00000040;
-        }
-        .sub {
-            text-align: center;
-            color: #c0b7a1;
-            margin-bottom: 28px;
-            font-style: italic;
-            border-bottom: 1px dashed #5f6b7a;
-            padding-bottom: 12px;
-        }
-        .control-panel {
-            display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
-            justify-content: center;
-            margin-bottom: 30px;
-        }
-        button {
-            background: #3e5a70;
-            border: none;
-            padding: 14px 28px;
-            border-radius: 60px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #f0ebdd;
-            letter-spacing: 1px;
-            cursor: pointer;
-            box-shadow: 0 8px 0 #1d2c38, 0 6px 12px black;
-            transition: all 0.08s ease-out;
-            border: 1px solid #7c8f9e;
-            flex: 0 1 auto;
-            min-width: 200px;
-        }
-        button:active {
-            transform: translateY(6px);
-            box-shadow: 0 2px 0 #1d2c38, 0 6px 12px black;
-        }
-        button:disabled {
-            opacity: 0.4;
-            transform: translateY(4px);
-            box-shadow: 0 4px 0 #1d2c38;
-            pointer-events: none;
-        }
-        .device-section {
-            background: #1e2b36c9;
-            border-radius: 36px;
-            padding: 20px 18px;
-            margin-bottom: 28px;
-            border: 1px solid #608094;
-            box-shadow: inset 0 2px 5px #00000055;
-        }
-        .section-title {
-            color: #dcd3c0;
-            font-weight: 500;
-            margin-top: 0;
-            margin-bottom: 16px;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .section-title span {
-            background: #097e8d;
-            padding: 4px 14px;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            color: white;
-        }
-        .device-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 240px;
-            overflow-y: auto;
-            padding-right: 6px;
-        }
-        .device-item {
-            background: #25333f;
-            border-radius: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 16px 8px 22px;
-            border: 1px solid #5e768a;
-            box-shadow: 0 4px 6px #00000033;
-            transition: 0.1s;
-        }
-        .device-item.connected {
-            background: #2b6d5c;
-            border-color: #b9e6d0;
-            box-shadow: 0 0 12px #6df0c0;
-        }
-        .device-name {
-            color: white;
-            font-weight: 500;
-            font-size: 1rem;
-            word-break: break-word;
-            max-width: 60%;
-        }
-        .device-name small {
-            font-weight: 300;
-            font-size: 0.75rem;
-            color: #b7c7d4;
-            margin-left: 10px;
-        }
-        .connect-btn {
-            background: #326a82;
-            border: none;
-            padding: 8px 22px;
-            border-radius: 40px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: white;
-            box-shadow: 0 4px 0 #14313e;
-            cursor: pointer;
-            transition: 0.05s linear;
-            border: 1px solid #96b8cd;
-        }
-        .connect-btn:active {
-            transform: translateY(4px);
-            box-shadow: 0 1px 0 #14313e;
-        }
-        .connect-btn.connected-btn {
-            background: #3f8b6b;
-            box-shadow: 0 4px 0 #1d4a38;
-            border-color: #b1e6cd;
-        }
-        .display-area {
-            background: #17212b;
-            border-radius: 48px;
-            padding: 26px 20px;
-            border: 2px solid #5d7e97;
-            box-shadow: inset 0 0 15px #000000, 0 10px 10px rgba(0,0,0,0.5);
-        }
-        .label-note {
-            color: #e6dccb;
-            font-size: 0.9rem;
-            letter-spacing: 1.5px;
-            margin-bottom: 6px;
-            margin-left: 12px;
-        }
-        .note-textbox {
-            width: 100%;
-            background: #0c141c;
-            border: 3px solid #3e5a6b;
-            border-radius: 60px;
-            padding: 18px 28px;
-            font-size: 2.2rem;
-            font-weight: 600;
-            color: #c3ffb2;
-            text-shadow: 0 0 8px #00d0ff;
-            letter-spacing: 3px;
-            outline: none;
-            box-shadow: inset 0 0 20px black;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-            transition: 0.1s;
-        }
-        .note-textbox:focus {
-            border-color: #86bace;
-        }
-        .info-footer {
-            display: flex;
-            justify-content: space-between;
-            color: #9aaec0;
-            margin-top: 12px;
-            padding: 0 10px;
-            font-size: 0.85rem;
-        }
-        .status-badge {
-            background: #1e3a3f;
-            padding: 6px 18px;
-            border-radius: 40px;
-            color: #b7d0d9;
-            border: 1px solid #5499b3;
-        }
-        .disconnect-all {
-            background: #5d4352;
-            box-shadow: 0 4px 0 #33212b;
-            border-color: #b4809b;
-            min-width: 130px;
-        }
+        /* 样式基本同前，略作优化 */
+        * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #1d2a35; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px; margin: 0; }
+        .card { background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); border-radius: 40px; padding: 28px 24px; max-width: 750px; width: 100%; border: 1px solid rgba(255,255,255,0.2); }
+        h1 { color: #f2e9d0; text-align: center; font-weight: 500; }
+        .sub { text-align: center; color: #c0b7a1; margin-bottom: 28px; border-bottom: 1px dashed #5f6b7a; padding-bottom: 12px; }
+        .control-panel { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 30px; }
+        button { background: #3e5a70; border: none; padding: 14px 28px; border-radius: 60px; font-size: 1.1rem; font-weight: 600; color: #f0ebdd; cursor: pointer; box-shadow: 0 8px 0 #1d2c38, 0 6px 12px black; transition: all 0.08s; border: 1px solid #7c8f9e; }
+        button:active { transform: translateY(6px); box-shadow: 0 2px 0 #1d2c38; }
+        button:disabled { opacity: 0.4; transform: translateY(4px); pointer-events: none; }
+        .device-section { background: #1e2b36c9; border-radius: 36px; padding: 20px 18px; margin-bottom: 28px; border: 1px solid #608094; }
+        .section-title { color: #dcd3c0; font-weight: 500; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .section-title span { background: #097e8d; padding: 4px 14px; border-radius: 50px; font-size: 0.8rem; color: white; }
+        .device-list { display: flex; flex-direction: column; gap: 12px; max-height: 240px; overflow-y: auto; padding-right: 6px; }
+        .device-item { background: #25333f; border-radius: 50px; display: flex; align-items: center; justify-content: space-between; padding: 8px 16px 8px 22px; border: 1px solid #5e768a; box-shadow: 0 4px 6px #00000033; }
+        .device-item.connected { background: #2b6d5c; border-color: #b9e6d0; box-shadow: 0 0 12px #6df0c0; }
+        .device-name { color: white; font-weight: 500; word-break: break-word; max-width: 60%; }
+        .device-name small { font-weight: 300; font-size: 0.75rem; color: #b7c7d4; margin-left: 10px; }
+        .connect-btn { background: #326a82; border: none; padding: 8px 22px; border-radius: 40px; font-size: 0.9rem; font-weight: 600; color: white; box-shadow: 0 4px 0 #14313e; cursor: pointer; border: 1px solid #96b8cd; }
+        .connect-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #14313e; }
+        .connect-btn.connected-btn { background: #3f8b6b; box-shadow: 0 4px 0 #1d4a38; border-color: #b1e6cd; }
+        .display-area { background: #17212b; border-radius: 48px; padding: 26px 20px; border: 2px solid #5d7e97; box-shadow: inset 0 0 15px #000000, 0 10px 10px rgba(0,0,0,0.5); }
+        .label-note { color: #e6dccb; font-size: 0.9rem; margin-bottom: 6px; margin-left: 12px; }
+        .note-textbox { width: 100%; background: #0c141c; border: 3px solid #3e5a6b; border-radius: 60px; padding: 18px 28px; font-size: 2.2rem; font-weight: 600; color: #c3ffb2; text-shadow: 0 0 8px #00d0ff; outline: none; text-align: center; font-family: 'Courier New', monospace; }
+        .info-footer { display: flex; justify-content: space-between; color: #9aaec0; margin-top: 12px; font-size: 0.85rem; }
+        .status-badge { background: #1e3a3f; padding: 6px 18px; border-radius: 40px; border: 1px solid #5499b3; }
+        .warning-banner { background: #5d3a2b; color: #ffd8b0; padding: 10px 20px; border-radius: 40px; margin-bottom: 20px; text-align: center; border: 1px solid #b87c4c; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>🎹 88键 · 蓝牙MIDI监视器</h1>
-        <div class="sub">按下琴键 — 实时显示音名 (A0 ~ C8)</div>
+<div class="card">
+    <h1>🎹 蓝牙MIDI · 增强诊断版</h1>
+    <div class="sub">按下琴键实时显示音名 (A0 ~ C8)</div>
 
-        <!-- 主要控制按钮组 -->
-        <div class="control-panel">
-            <button id="searchBtn">🔍 搜索蓝牙MIDI设备</button>
-            <button id="disconnectBtn" class="disconnect-all" disabled>🔌 断开当前设备</button>
-        </div>
+    <!-- 兼容性警告区域（动态显示） -->
+    <div id="compatibilityWarning" class="warning-banner" style="display: none;">⚠️ 您的浏览器不支持 Web MIDI API，请使用 Chrome 或 Edge。</div>
 
-        <!-- 设备列表区域 -->
-        <div class="device-section">
-            <div class="section-title">
-                📡 可用MIDI输入设备 
-                <span id="deviceCount">0</span>
-            </div>
-            <div id="deviceListContainer" class="device-list">
-                <!-- 动态生成设备项 -->
-                <div style="color: #8899aa; text-align: center; padding: 20px;">点击「搜索」并确保蓝牙MIDI已配对</div>
-            </div>
-        </div>
-
-        <!-- 显示按下的音名 (88键对应) -->
-        <div class="display-area">
-            <div class="label-note">⌨️ 当前按下的琴键 (音名) :</div>
-            <input type="text" id="noteDisplay" class="note-textbox" readonly value="—— 无 ——" 
-                   placeholder="按下琴键显示音名">
-            <div class="info-footer">
-                <span class="status-badge" id="connectionStatus">⚪ 未连接</span>
-                <span>🎼 88键范围: A0 (21) ～ C8 (108)</span>
-            </div>
-        </div>
+    <div class="control-panel">
+        <button id="searchBtn">🔍 搜索蓝牙MIDI设备</button>
+        <button id="disconnectBtn" class="disconnect-all" disabled>🔌 断开当前设备</button>
     </div>
 
-    <script>
-        (function() {
-            // ---------- 全局变量 ----------
-            let midiAccess = null;                 // MIDIAccess 实例
-            let currentInput = null;                // 当前连接的 MIDIInput
-            const activeNotes = new Set();          // 存放当前按下的MIDI音符编号 (整数)
-            let connectedDeviceId = null;           // 用于UI高亮
+    <div class="device-section">
+        <div class="section-title">
+            📡 可用MIDI输入设备
+            <span id="deviceCount">0</span>
+        </div>
+        <div id="deviceListContainer" class="device-list">
+            <div style="color: #8899aa; text-align: center; padding: 20px;">点击「搜索」并确保蓝牙MIDI已配对</div>
+        </div>
+        <!-- 增加状态提示行 -->
+        <div id="midiStatusHint" style="color: #aabbcc; font-size: 0.9rem; margin-top: 12px; text-align: center;"></div>
+    </div>
 
-            // DOM 元素
-            const searchBtn = document.getElementById('searchBtn');
-            const disconnectBtn = document.getElementById('disconnectBtn');
-            const deviceListContainer = document.getElementById('deviceListContainer');
-            const deviceCountSpan = document.getElementById('deviceCount');
-            const noteDisplay = document.getElementById('noteDisplay');
-            const connectionStatusSpan = document.getElementById('connectionStatus');
+    <div class="display-area">
+        <div class="label-note">⌨️ 当前按下的琴键 (音名) :</div>
+        <input type="text" id="noteDisplay" class="note-textbox" readonly value="—— 无 ——">
+        <div class="info-footer">
+            <span class="status-badge" id="connectionStatus">⚪ 未连接</span>
+            <span>🎼 范围: 21(A0) ~ 108(C8)</span>
+        </div>
+    </div>
+</div>
 
-            // ---------- 辅助函数: MIDI note -> 音名 (88键范围 A0 ~ C8) ----------
-            function noteNumberToName(note) {
-                const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                // 标准 MIDI 0 = C-1, 但钢琴从21(A0)开始
-                const octave = Math.floor(note / 12) - 1;  // 例如 21 -> 0 (A0), 60 -> 4 (C4)
-                const noteName = names[note % 12];
-                return `${noteName}${octave}`;
+<script>
+(function() {
+    // ----- 检测浏览器兼容性 -----
+    if (!navigator.requestMIDIAccess) {
+        document.getElementById('compatibilityWarning').style.display = 'block';
+        // 禁用搜索按钮
+        document.getElementById('searchBtn').disabled = true;
+        // 显示提示信息
+        document.getElementById('midiStatusHint').innerText = '❌ 当前浏览器不支持Web MIDI API。请使用Chrome或Edge。';
+        return; // 停止执行后续代码
+    }
+
+    // ----- 变量定义 -----
+    let midiAccess = null;
+    let currentInput = null;
+    const activeNotes = new Set();
+    let connectedDeviceId = null;
+
+    const searchBtn = document.getElementById('searchBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const deviceListContainer = document.getElementById('deviceListContainer');
+    const deviceCountSpan = document.getElementById('deviceCount');
+    const noteDisplay = document.getElementById('noteDisplay');
+    const connectionStatusSpan = document.getElementById('connectionStatus');
+    const midiStatusHint = document.getElementById('midiStatusHint');
+
+    // ----- 辅助函数: MIDI note -> 音名 -----
+    function noteNumberToName(note) {
+        const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const octave = Math.floor(note / 12) - 1;
+        return `${names[note % 12]}${octave}`;
+    }
+
+    function updateNoteDisplay() {
+        if (activeNotes.size === 0) {
+            noteDisplay.value = '—— 无 ——';
+            return;
+        }
+        const sorted = Array.from(activeNotes).sort((a,b)=>a-b);
+        noteDisplay.value = sorted.map(n => noteNumberToName(n)).join('  ·  ');
+    }
+
+    // ----- MIDI消息处理 -----
+    function handleMIDIMessage(event) {
+        const [status, note, velocity] = event.data;
+        const cmd = status & 0xF0;
+        if (cmd === 0x90 && velocity > 0) activeNotes.add(note);
+        else activeNotes.delete(note);
+        updateNoteDisplay();
+    }
+
+    // ----- 断开连接 -----
+    function disconnectCurrentDevice() {
+        if (currentInput) {
+            currentInput.onmidimessage = null;
+            currentInput = null;
+        }
+        activeNotes.clear();
+        updateNoteDisplay();
+        connectedDeviceId = null;
+        connectionStatusSpan.innerHTML = '⚪ 未连接';
+        disconnectBtn.disabled = true;
+
+        // 移除所有高亮
+        document.querySelectorAll('.device-item').forEach(item => {
+            item.classList.remove('connected');
+            const btn = item.querySelector('.connect-btn');
+            if (btn) {
+                btn.classList.remove('connected-btn');
+                btn.textContent = '连接';
             }
+        });
+    }
 
-            // ---------- 更新文本框显示当前按下的所有音名 ----------
-            function updateNoteDisplay() {
-                if (activeNotes.size === 0) {
-                    noteDisplay.value = '—— 无 ——';
-                    return;
-                }
-                // 将note编号转为音名，并排序 (从小到大)
-                const sortedNotes = Array.from(activeNotes).sort((a, b) => a - b);
-                const nameList = sortedNotes.map(n => noteNumberToName(n));
-                // 用逗号分隔显示
-                noteDisplay.value = nameList.join('  ·  ');
-            }
+    // ----- 连接指定设备 -----
+    function connectDevice(input) {
+        if (currentInput && currentInput.id === input.id) return;
+        disconnectCurrentDevice();
 
-            // ---------- 处理MIDI输入消息 ----------
-            function handleMIDIMessage(event) {
-                const [status, note, velocity] = event.data;
-                const cmd = status & 0xF0; // 提取高4位
+        try {
+            input.onmidimessage = handleMIDIMessage;
+            currentInput = input;
+            connectedDeviceId = input.id;
 
-                // 只处理音符相关 (note on / note off)
-                if (cmd === 0x90 || cmd === 0x80) {
-                    // note on 且力度>0 => 按下, 否则为抬起
-                    if (cmd === 0x90 && velocity > 0) {
-                        activeNotes.add(note);
-                    } else {
-                        // note off 或者 note on 力度0 都视为抬起
-                        activeNotes.delete(note);
+            const deviceName = input.name || input.manufacturer || '未知设备';
+            connectionStatusSpan.innerHTML = `🟢 已连接: ${deviceName.substring(0,20)}`;
+            disconnectBtn.disabled = false;
+
+            // 高亮对应的设备项
+            document.querySelectorAll('.device-item').forEach(item => {
+                const btn = item.querySelector('.connect-btn');
+                const itemId = item.dataset.deviceId;
+                if (itemId === input.id) {
+                    item.classList.add('connected');
+                    if (btn) {
+                        btn.classList.add('connected-btn');
+                        btn.textContent = '已连接';
                     }
-                    // 调试时可打印日志，但避免干扰
-                    // console.log(`MIDI: status=${status}, note=${note}, vel=${velocity}`);
-                    updateNoteDisplay();
-                }
-                // 其他消息（如弯音、控制改变）忽略，不影响显示
-            }
-
-            // ---------- 断开当前设备连接 (UI和内部) ----------
-            function disconnectCurrentDevice() {
-                if (currentInput) {
-                    // 移除监听
-                    currentInput.onmidimessage = null;
-                    currentInput = null;
-                }
-                // 清空按键集合
-                activeNotes.clear();
-                updateNoteDisplay();
-                connectedDeviceId = null;
-                // 更新连接状态显示
-                connectionStatusSpan.innerHTML = '⚪ 未连接';
-                disconnectBtn.disabled = true;
-
-                // 刷新设备列表高亮 (移除所有connected样式)
-                const items = document.querySelectorAll('.device-item');
-                items.forEach(item => {
+                } else {
                     item.classList.remove('connected');
-                    const btn = item.querySelector('.connect-btn');
                     if (btn) {
                         btn.classList.remove('connected-btn');
                         btn.textContent = '连接';
                     }
-                });
-            }
-
-            // ---------- 连接指定设备 ----------
-            function connectDevice(input) {
-                // 如果已经是当前连接的设备，不做变化
-                if (currentInput && currentInput.id === input.id && currentInput.onmidimessage) {
-                    return; // 已连接
-                }
-
-                // 断开之前的连接
-                disconnectCurrentDevice();  // 这会清空activeNotes, 移除监听
-
-                // 设置新连接
-                try {
-                    input.onmidimessage = handleMIDIMessage;
-                    currentInput = input;
-                    connectedDeviceId = input.id;
-
-                    // 更新连接状态显示 (尝试获取设备名称)
-                    const deviceName = input.name || input.manufacturer || '未知设备';
-                    connectionStatusSpan.innerHTML = `🟢 已连接: ${deviceName.substring(0, 20)}`;
-                    disconnectBtn.disabled = false;
-
-                    // 更新UI：高亮对应的设备项
-                    const items = document.querySelectorAll('.device-item');
-                    items.forEach(item => {
-                        const btn = item.querySelector('.connect-btn');
-                        const itemId = item.dataset.deviceId; // 自定义属性存储id
-                        if (itemId === input.id) {
-                            item.classList.add('connected');
-                            if (btn) {
-                                btn.classList.add('connected-btn');
-                                btn.textContent = '已连接';
-                            }
-                        } else {
-                            item.classList.remove('connected');
-                            if (btn) {
-                                btn.classList.remove('connected-btn');
-                                btn.textContent = '连接';
-                            }
-                        }
-                    });
-
-                } catch (e) {
-                    console.error('连接失败:', e);
-                    alert('无法连接设备: ' + e.message);
-                }
-            }
-
-            // ---------- 渲染设备列表 (根据MIDIAccess的inputs) ----------
-            function renderDeviceList() {
-                if (!midiAccess) {
-                    deviceListContainer.innerHTML = '<div style="color: #8899aa; text-align: center; padding: 20px;">🎯 请先点击「搜索蓝牙MIDI设备」</div>';
-                    deviceCountSpan.innerText = '0';
-                    return;
-                }
-
-                const inputs = midiAccess.inputs;
-                const inputArray = Array.from(inputs.values());
-                deviceCountSpan.innerText = inputArray.length;
-
-                if (inputArray.length === 0) {
-                    deviceListContainer.innerHTML = '<div style="color: #ccaa88; text-align: center; padding: 20px;">📭 没有找到MIDI设备<br>请确保蓝牙MIDI已配对并开启</div>';
-                    return;
-                }
-
-                // 生成每个设备的HTML
-                let htmlStr = '';
-                inputArray.forEach(input => {
-                    const deviceName = input.name || '未命名设备';
-                    const manufacturer = input.manufacturer || '未知厂商';
-                    const deviceId = input.id;
-                    // 判断该设备是否为当前连接设备
-                    const isConnected = (currentInput && currentInput.id === deviceId);
-
-                    // 构建设备项，使用data-device-id存储id以便后续操作
-                    htmlStr += `
-                        <div class="device-item ${isConnected ? 'connected' : ''}" data-device-id="${deviceId}">
-                            <span class="device-name">
-                                ${deviceName} <small>${manufacturer}</small>
-                            </span>
-                            <button class="connect-btn ${isConnected ? 'connected-btn' : ''}" data-device-id="${deviceId}">
-                                ${isConnected ? '已连接' : '连接'}
-                            </button>
-                        </div>
-                    `;
-                });
-
-                deviceListContainer.innerHTML = htmlStr;
-
-                // 为所有连接按钮绑定事件 (通过事件代理或者逐个绑定，这里直接用容器代理)
-                // 但是因为按钮可能动态生成，用容器事件监听更可靠
-            }
-
-            // ---------- 事件代理: 点击设备上的连接按钮 ----------
-            deviceListContainer.addEventListener('click', (e) => {
-                const target = e.target.closest('.connect-btn');
-                if (!target) return; // 不是按钮
-
-                const deviceId = target.dataset.deviceId;
-                if (!midiAccess) return;
-
-                // 根据deviceId找到对应的MIDIInput
-                const inputs = midiAccess.inputs;
-                let targetInput = null;
-                for (let input of inputs.values()) {
-                    if (input.id === deviceId) {
-                        targetInput = input;
-                        break;
-                    }
-                }
-
-                if (targetInput) {
-                    // 如果当前已连接此设备，也可以不做任何事，但可以再次点击重新连接? 为了体验，如果已连接就不操作
-                    if (currentInput && currentInput.id === deviceId) {
-                        // 已经连接，忽略或可提示
-                        return;
-                    }
-                    connectDevice(targetInput);
-                } else {
-                    alert('设备不存在，请重新搜索');
                 }
             });
 
-            // ---------- 搜索设备: 请求MIDI访问并刷新列表 ----------
-            async function searchMIDIDevices() {
-                // 重置/断开之前的连接
-                disconnectCurrentDevice();
+            midiStatusHint.innerText = `✅ 已连接至 ${deviceName}`;
+        } catch (e) {
+            console.error('连接失败:', e);
+            midiStatusHint.innerText = `❌ 连接失败: ${e.message}`;
+        }
+    }
 
-                // 请求MIDI访问
-                try {
-                    // 注意: 需要用户手势，searchBtn在点击时触发
-                    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-                    console.log('MIDI 已授权，设备就绪');
+    // ----- 渲染设备列表 -----
+    function renderDeviceList() {
+        if (!midiAccess) {
+            deviceListContainer.innerHTML = '<div style="color: #8899aa; text-align: center; padding: 20px;">🎯 请先点击「搜索蓝牙MIDI设备」</div>';
+            deviceCountSpan.innerText = '0';
+            midiStatusHint.innerText = '🔵 点击搜索以请求MIDI权限';
+            return;
+        }
 
-                    // 监听设备插拔 (可选，刷新列表)
-                    midiAccess.onstatechange = (event) => {
-                        console.log('MIDI端口状态变化:', event.port);
-                        // 简单重新渲染列表，但不自动连接已断开设备
-                        // 注意：如果当前连接的设备断开，需要清理
-                        if (currentInput) {
-                            // 检查当前连接的input是否还在inputs里
-                            const stillExists = Array.from(midiAccess.inputs.values()).some(i => i.id === currentInput.id);
-                            if (!stillExists) {
-                                // 设备已物理断开，清理连接
-                                disconnectCurrentDevice();
-                            }
-                        }
-                        renderDeviceList();
-                    };
+        const inputs = midiAccess.inputs;
+        const inputArray = Array.from(inputs.values());
+        deviceCountSpan.innerText = inputArray.length;
 
-                    // 渲染列表
-                    renderDeviceList();
+        if (inputArray.length === 0) {
+            deviceListContainer.innerHTML = '<div style="color: #ccaa88; text-align: center; padding: 20px;">📭 没有找到MIDI设备<br>👉 请确认：<br>1. 蓝牙MIDI已配对并开启<br>2. 已点击“允许”权限<br>3. 设备在系统蓝牙中显示已连接</div>';
+            midiStatusHint.innerText = '⚠️ 设备列表为空，请检查系统蓝牙配对和权限';
+            return;
+        }
 
-                    // 如果有设备，可以自动连接第一个？不符合设计，让用户自己选。
-                    // 但若之前无任何连接，什么也不做
+        let htmlStr = '';
+        inputArray.forEach(input => {
+            const deviceName = input.name || '未命名设备';
+            const manufacturer = input.manufacturer || '未知厂商';
+            const deviceId = input.id;
+            const isConnected = (currentInput && currentInput.id === deviceId);
 
-                } catch (err) {
-                    console.error('无法获取MIDI访问权限:', err);
-                    alert('无法访问MIDI设备。可能原因：\n1. 浏览器不支持Web MIDI API (建议Chrome/Edge)\n2. 用户拒绝权限\n3. 无蓝牙MIDI设备配对');
-                    midiAccess = null;
-                    renderDeviceList(); // 显示空
-                }
-            }
+            htmlStr += `
+                <div class="device-item ${isConnected ? 'connected' : ''}" data-device-id="${deviceId}">
+                    <span class="device-name">
+                        ${deviceName} <small>${manufacturer}</small>
+                    </span>
+                    <button class="connect-btn ${isConnected ? 'connected-btn' : ''}" data-device-id="${deviceId}">
+                        ${isConnected ? '已连接' : '连接'}
+                    </button>
+                </div>
+            `;
+        });
 
-            // ---------- 点击搜索按钮 ----------
-            searchBtn.addEventListener('click', () => {
-                searchMIDIDevices();
-            });
+        deviceListContainer.innerHTML = htmlStr;
+        midiStatusHint.innerText = `🔎 找到 ${inputArray.length} 个设备，点击「连接」使用`;
+    }
 
-            // ---------- 断开按钮 ----------
-            disconnectBtn.addEventListener('click', () => {
-                disconnectCurrentDevice();
-                // 刷新列表去掉高亮 (已在disconnectCurrentDevice中通过移除类实现)
-                renderDeviceList(); // 确保UI一致
-            });
+    // ----- 搜索设备 (请求MIDI访问) -----
+    async function searchMIDIDevices() {
+        disconnectCurrentDevice();
+        midiStatusHint.innerText = '⏳ 请求MIDI访问权限...';
 
-            // ---------- 初始化页面时检查是否已经可用 (但不自动请求) ----------
-            // 仅尝试查看是否已有midi权限? 但最好由用户点击触发。此处仅设置占位
-            // 预清除连接状态
-            disconnectCurrentDevice();
+        try {
+            midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+            console.log('MIDI Access granted', midiAccess);
 
-            // 附加说明: 如果浏览器支持MIDI但之前授权过，可以直接尝试? 不，还是让用户点击搜索。
-            // 添加键盘安全: 避免页面意外
-
-            // 监听窗口卸载，清理监听 (非必须)
-            window.addEventListener('beforeunload', function() {
+            midiAccess.onstatechange = (event) => {
+                console.log('端口状态变化:', event.port);
+                // 如果当前连接的设备断开，自动清理
                 if (currentInput) {
-                    currentInput.onmidimessage = null;
+                    const stillExists = Array.from(midiAccess.inputs.values()).some(i => i.id === currentInput.id);
+                    if (!stillExists) disconnectCurrentDevice();
                 }
-            });
+                renderDeviceList();
+            };
 
-            // 音名测试: 可以打印范围 (仅内部验证)
-            console.log('A0(21) ->', noteNumberToName(21), 'C8(108)->', noteNumberToName(108));
-        })();
-    </script>
-    <!-- 附加说明：蓝牙MIDI需要先配对，且浏览器需支持Web MIDI API (Chrome/Edge/Opera) -->
+            renderDeviceList();
+        } catch (err) {
+            console.error('MIDI访问失败:', err);
+            midiAccess = null;
+            deviceListContainer.innerHTML = '<div style="color: #ffaa88; text-align: center; padding: 20px;">❌ 无法获取MIDI设备权限。<br>请允许权限并重试。</div>';
+            deviceCountSpan.innerText = '0';
+            midiStatusHint.innerText = '❌ 权限被拒绝或发生错误: ' + err.message;
+        }
+    }
+
+    // ----- 事件绑定 -----
+    searchBtn.addEventListener('click', searchMIDIDevices);
+
+    disconnectBtn.addEventListener('click', () => {
+        disconnectCurrentDevice();
+        renderDeviceList(); // 刷新按钮样式
+        midiStatusHint.innerText = '⏸️ 已断开连接';
+    });
+
+    deviceListContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.connect-btn');
+        if (!btn) return;
+        const deviceId = btn.dataset.deviceId;
+        if (!midiAccess) {
+            alert('请先点击搜索获取设备列表');
+            return;
+        }
+
+        const inputs = midiAccess.inputs;
+        let targetInput = null;
+        for (let input of inputs.values()) {
+            if (input.id === deviceId) {
+                targetInput = input;
+                break;
+            }
+        }
+
+        if (targetInput) {
+            if (currentInput && currentInput.id === deviceId) return; // 已连接
+            connectDevice(targetInput);
+        } else {
+            alert('设备不存在，请重新搜索');
+        }
+    });
+
+    // 初始状态提示
+    midiStatusHint.innerText = '🔵 点击「搜索蓝牙MIDI设备」开始';
+})();
+</script>
 </body>
 </html>
