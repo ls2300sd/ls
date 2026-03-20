@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MIDI 音名显示器 · 直接解析版</title>
+    <title>MIDI 音名显示器 · 蓝牙5字节解析</title>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
         body { background: #1a2632; min-height: 100vh; display: flex; justify-content: center; align-items: center; margin: 0; padding: 16px; }
@@ -35,7 +35,7 @@
 </head>
 <body>
     <div class="card">
-        <h1>🎹 MIDI 直接解析版</h1>
+        <h1>🎹 MIDI 蓝牙5字节解析版</h1>
         <div class="sub">按下琴键 — 显示当前音名 (中央C = C4)</div>
 
         <div class="button-group">
@@ -81,7 +81,7 @@
         </div>
 
         <div class="footer-note">
-            ⚡ 直接解析：状态 0x90=按下，0x80=松开；音符值显示为十六进制以便对照
+            ⚡ 蓝牙数据跳过前2字节（时间戳），从第3字节开始解析 MIDI
         </div>
     </div>
 
@@ -113,33 +113,28 @@
             // 辅助：更新调试信息（追加新行）
             function appendDebug(line) {
                 const current = debugInfo.innerText;
-                // 限制行数，避免过长
                 const lines = current.split('\n');
                 if (lines.length > 20) lines.shift();
                 lines.push(line);
                 debugInfo.innerText = lines.join('\n');
-                // 自动滚动到底部
                 debugInfo.scrollTop = debugInfo.scrollHeight;
             }
 
-            // 辅助：清空调试信息
             function clearDebug() {
                 debugInfo.innerText = '';
             }
 
-            // 辅助：格式化字节数组为十六进制字符串
             function bytesToHex(data) {
                 return Array.from(data).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
             }
 
-            // -------------------- 音名转换 (C4 为中央C) --------------------
+            // -------------------- 音名转换 --------------------
             function noteNumberToName(note) {
                 const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
                 const octave = Math.floor(note / 12) - 1;
                 return `${names[note % 12]}${octave}`;
             }
 
-            // 更新显示
             function updateNoteDisplay() {
                 if (currentNote === -1) {
                     noteDisplay.value = '——';
@@ -150,16 +145,16 @@
                 }
             }
 
-            // -------------------- 核心解析函数（直接处理三字节MIDI消息）--------------------
-            function parseMidiData(data, source) {
-                const hex = bytesToHex(data);
-                appendDebug(`[${source}] 收到: ${hex} (长度 ${data.length})`);
+            // -------------------- 解析MIDI消息（通用）--------------------
+            // data: Uint8Array, startIndex: 从此索引开始解析，source: 来源字符串
+            function parseMidiFromIndex(data, startIndex, source) {
+                const totalHex = bytesToHex(data);
+                appendDebug(`[${source}] 原始数据: ${totalHex} (长度 ${data.length})`);
 
-                let i = 0;
+                let i = startIndex;
                 while (i < data.length) {
-                    // 检查是否可能是一个MIDI状态字节（高位为1）
+                    // 查找状态字节（高位为1）
                     if ((data[i] & 0x80) === 0) {
-                        // 不是状态字节，可能是数据流中的额外字节，跳过
                         i++;
                         continue;
                     }
@@ -167,38 +162,34 @@
                     const status = data[i];
                     const cmd = status & 0xF0;
 
-                    // 根据常见MIDI消息长度确定需要多少字节
+                    // 确定消息长度
                     let len = 1;
                     if (cmd === 0x80 || cmd === 0x90 || cmd === 0xA0 || cmd === 0xB0 || cmd === 0xE0) {
-                        len = 3; // 音符、触后、控制变化、弯音
+                        len = 3;
                     } else if (cmd === 0xC0 || cmd === 0xD0) {
-                        len = 2; // 程序变化、通道触后
+                        len = 2;
                     } else {
-                        // 其他系统消息（如时钟、开始等）长度不定，这里简单跳过当前字节
+                        // 其他系统消息，跳过此字节
                         i++;
                         continue;
                     }
 
-                    // 检查剩余字节是否足够
                     if (i + len > data.length) {
                         appendDebug(`  数据包不完整，期待 ${len} 字节，剩余 ${data.length - i} 字节，停止解析`);
                         break;
                     }
 
-                    // 只处理音符开/关消息
+                    // 只处理音符开/关
                     if (cmd === 0x90 || cmd === 0x80) {
                         const note = data[i + 1];
                         const velocity = data[i + 2];
                         const noteHex = note.toString(16).padStart(2, '0').toUpperCase();
 
-                        // 检查音符值是否在合理范围（0-127）
                         if (note >= 0 && note <= 127) {
                             if (cmd === 0x90 && velocity > 0) {
-                                // 按下
                                 appendDebug(`  → 按下: 音符 ${note} (0x${noteHex})，力度 ${velocity}`);
                                 currentNote = note;
                             } else {
-                                // 松开 (包括 0x80 以及 0x90+力度0)
                                 appendDebug(`  → 松开: 音符 ${note} (0x${noteHex})`);
                                 if (currentNote === note) {
                                     currentNote = -1;
@@ -208,7 +199,6 @@
                             appendDebug(`  → 忽略无效音符值: ${note}`);
                         }
                     } else {
-                        // 其他消息，可以忽略，但打印调试
                         appendDebug(`  → 忽略非音符消息: 状态 0x${status.toString(16).toUpperCase()}`);
                     }
 
@@ -218,7 +208,7 @@
                 updateNoteDisplay();
             }
 
-            // -------------------- 有线 MIDI --------------------
+            // -------------------- 有线 MIDI 处理 --------------------
             async function requestMidiAccess() {
                 try {
                     midiAccess = await navigator.requestMIDIAccess({ sysex: false });
@@ -276,7 +266,8 @@
                 clearDebug();
 
                 input.onmidimessage = (event) => {
-                    parseMidiData(event.data, 'wired');
+                    // 有线MIDI数据为标准格式，从索引0开始解析
+                    parseMidiFromIndex(event.data, 0, 'wired');
                 };
                 currentInput = input;
                 connectionStatus.innerHTML = `🟢 已连接: ${input.name || '有线设备'}`;
@@ -286,7 +277,7 @@
                 if (bluetoothConnected) disconnectBluetooth();
             }
 
-            // -------------------- 蓝牙 MIDI --------------------
+            // -------------------- 蓝牙 MIDI 处理 --------------------
             async function connectBluetooth() {
                 if (!navigator.bluetooth) {
                     alert('浏览器不支持 Web Bluetooth。请使用 Chrome/Edge。');
@@ -313,7 +304,8 @@
                     characteristic.addEventListener('characteristicvaluechanged', (event) => {
                         const value = event.target.value;
                         const data = new Uint8Array(value.buffer);
-                        parseMidiData(data, 'bluetooth');
+                        // 蓝牙数据：前2字节为时间戳，从索引2开始解析MIDI
+                        parseMidiFromIndex(data, 2, 'bluetooth');
                     });
 
                     await characteristic.startNotifications();
